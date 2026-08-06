@@ -3,6 +3,14 @@
 Guía para publicar el proyecto en Hostinger con la base de demostración ya
 cargada. Toma unos 15 minutos.
 
+> ## ⚠ Lo primero: `debug => false`
+>
+> Si en `config.php` queda `'debug' => true`, cualquier error muestra al
+> visitante **la ruta completa de sus archivos en el servidor** y fragmentos de
+> las consultas, como en `/home/u000000/domains/…/app/DB.php`. Eso le dice a un
+> atacante dónde está todo. Con `false` sólo se ve un mensaje genérico y el
+> detalle queda en `storage/logs/php-error.log`.
+
 ---
 
 ## 1. Crear la base de datos

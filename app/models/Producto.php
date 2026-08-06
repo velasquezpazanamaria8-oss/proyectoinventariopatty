@@ -229,7 +229,9 @@ class Producto
                LEFT JOIN stock s ON s.producto_id = pr.id' . $filtroAlm . '
               WHERE ' . Empresa::filtro('pr') . ' AND pr.estado = 1
               GROUP BY pr.id, pr.codigo, pr.descripcion, pr.stock_minimo, un.codigo
-             HAVING stock_actual <= pr.stock_minimo
-              ORDER BY (stock_actual - pr.stock_minimo) ASC, pr.descripcion', $p);
+             -- Se repite la expresión en lugar de usar el alias: MariaDB no
+             -- admite referenciar una función de agregación por su alias.
+             HAVING COALESCE(SUM(s.cantidad), 0) <= pr.stock_minimo
+              ORDER BY (COALESCE(SUM(s.cantidad), 0) - pr.stock_minimo) ASC, pr.descripcion', $p);
     }
 }

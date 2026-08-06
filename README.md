@@ -183,6 +183,28 @@ vende 150—:
 sistema puede usarse con fines de gestión interna, pero para estados
 financieros conviene promedio o PEPS.
 
+### Compatibilidad MySQL / MariaDB
+
+El desarrollo local corre sobre MySQL 8 y el hosting sobre MariaDB, que es más
+estricta. Dos diferencias ya nos costaron un error en producción y conviene
+tenerlas presentes al escribir consultas nuevas:
+
+1. **No referenciar el alias de una función de agregación en `HAVING`.**
+   MySQL lo acepta, MariaDB responde *"Reference not supported (reference to
+   group function)"*. Hay que repetir la expresión:
+   `HAVING COALESCE(SUM(s.cantidad), 0) <= pr.stock_minimo`.
+2. **Literales SQL siempre en comillas simples.** Con `ANSI_QUOTES` activo, las
+   comillas dobles se interpretan como nombre de columna y la consulta falla.
+
+Para comprobar ambas cosas antes de subir, active temporalmente el modo
+estricto en `app/DB.php`:
+
+```php
+SET SESSION sql_mode='STRICT_TRANS_TABLES,NO_ENGINE_SUBSTITUTION,ANSI_QUOTES'
+```
+
+y recorra las pantallas. Recuerde revertirlo después.
+
 ### Actualizar una base ya instalada
 
 `migrar.php` agrega las columnas y tablas nuevas sin perder datos. Es

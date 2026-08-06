@@ -57,7 +57,9 @@ class Reporte
         if ($almacenId) { $filtro = ' AND s.almacen_id = :a'; $p[':a'] = $almacenId; }
 
         return DB::todos(
-            'SELECT COALESCE(c.nombre, "SIN CATEGORÍA") AS categoria,
+            // Literales en comillas simples: con ANSI_QUOTES activo, las
+            // comillas dobles se interpretarían como nombre de columna.
+            'SELECT COALESCE(c.nombre, \'SIN CATEGORÍA\') AS categoria,
                     COUNT(DISTINCT pr.id) AS productos,
                     COALESCE(SUM(s.cantidad), 0) AS cantidad,
                     COALESCE(SUM(s.cantidad * pr.costo_promedio), 0) AS valor
@@ -93,9 +95,9 @@ class Reporte
 
         return DB::todos(
             'SELECT u.usuario, u.nombres,
-                    SUM(k.tipo = "ENTRADA") AS entradas,
-                    SUM(k.tipo = "SALIDA")  AS salidas,
-                    SUM(k.tipo IN ("AJUSTE_POS","AJUSTE_NEG")) AS ajustes,
+                    SUM(k.tipo = \'ENTRADA\') AS entradas,
+                    SUM(k.tipo = \'SALIDA\')  AS salidas,
+                    SUM(k.tipo IN (\'AJUSTE_POS\',\'AJUSTE_NEG\')) AS ajustes,
                     COUNT(*) AS total
                FROM kardex k
                JOIN usuarios u ON u.id = k.usuario_id

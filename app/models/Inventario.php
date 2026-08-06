@@ -89,7 +89,7 @@ class Inventario
 
         $abierto = DB::valor(
             'SELECT codigo FROM inventarios
-              WHERE almacen_id = :a AND estado = "ABIERTO" AND ' . Empresa::filtro(),
+              WHERE almacen_id = :a AND estado = \'ABIERTO\' AND ' . Empresa::filtro(),
             Empresa::param() + [':a' => $almacenId]);
         if ($abierto) {
             throw new RuntimeException("Ya existe un conteo abierto para ese almacén ($abierto). Ciérrelo antes de abrir otro.");
@@ -98,7 +98,7 @@ class Inventario
         return DB::transaccion(function () use ($d, $almacenId, $empresaId, $soloConStock) {
             $ultimo = (int) DB::valor(
                 'SELECT COALESCE(MAX(CAST(SUBSTRING(codigo, 5) AS UNSIGNED)), 0)
-                   FROM inventarios WHERE empresa_id = :e AND codigo LIKE "INV-%" FOR UPDATE',
+                   FROM inventarios WHERE empresa_id = :e AND codigo LIKE \'INV-%\' FOR UPDATE',
                 [':e' => $empresaId]);
             $codigo = 'INV-' . str_pad((string) ($ultimo + 1), 5, '0', STR_PAD_LEFT);
 
@@ -113,7 +113,8 @@ class Inventario
             ]);
 
             // Snapshot del stock en el momento de abrir el conteo.
-            $having = $soloConStock ? 'HAVING stock_sistema <> 0' : '';
+            // Igual que arriba: se repite la expresión, no el alias.
+            $having = $soloConStock ? 'HAVING COALESCE(s.cantidad, 0) <> 0' : '';
             $productos = DB::todos(
                 'SELECT pr.id, COALESCE(s.cantidad, 0) AS stock_sistema
                    FROM productos pr
