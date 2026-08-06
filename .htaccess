@@ -1,0 +1,15 @@
+# Bloquea el acceso directo a directorios internos
+RewriteEngine On
+RewriteRule ^(app|views|database|storage)/ - [F,L]
+
+# Evita el listado de directorios
+Options -Indexes
+
+<FilesMatch "\.(sql|log|md)$">
+  Require all denied
+</FilesMatch>
+
+# No exponer config.php
+<Files "config.php">
+  Require all denied
+</Files>
