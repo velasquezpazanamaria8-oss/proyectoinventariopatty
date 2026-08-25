@@ -31,6 +31,31 @@ class Vista
         require BASE_PATH . '/views/layout.php';
     }
 
+    /**
+     * Render de una pantalla de SISTEMA, sin el menú de la empresa activa.
+     *
+     * Administrar las empresas no pertenece a ninguna de ellas: enseñarlo con
+     * el menú de la que quedó seleccionada hace pensar que lo que se ve está
+     * filtrado por ella, cuando es la lista completa.
+     */
+    public static function renderSistema(string $__vista, array $__datos = [], ?string $__titulo = null): void
+    {
+        $__archivo = BASE_PATH . '/views/' . $__vista . '.php';
+        if (!is_file($__archivo)) {
+            throw new RuntimeException("Vista no encontrada: $__vista");
+        }
+
+        extract($__datos, EXTR_SKIP);
+
+        ob_start();
+        require $__archivo;
+
+        $contenido    = ob_get_clean();
+        $tituloPagina = $__titulo ?? Config::get('app.nombre');
+
+        require BASE_PATH . '/views/layout_sistema.php';
+    }
+
     /** Vista sin layout (login, impresión). */
     public static function renderPlano(string $__vista, array $__datos = []): void
     {

@@ -66,7 +66,7 @@ $ver = function (string $ruta): string {
         <a href="<?= url('inventario_fisico.php') ?>">Inventario físico</a>
       <?php endif; ?>
       <?php if (Auth::puede('reportes.ver')): ?><a href="<?= url('reportes.php') ?>">Reportes</a><?php endif; ?>
-      <?php if (Auth::puede('usuarios.ver') || Auth::puede('empresas.gestionar')): ?>
+      <?php if (Auth::puede('usuarios.ver') || Auth::puede('sunat.gestionar')): ?>
         <span class="menu-grupo">Administración</span>
       <?php endif; ?>
       <?php if (Auth::puede('sunat.gestionar')): ?>
@@ -77,7 +77,6 @@ $ver = function (string $ruta): string {
         <a href="<?= url('sunat_generar.php') ?>">Generar movimientos</a>
         <a href="<?= url('sunat_estado.php') ?>">Estado SUNAT</a>
       <?php endif; ?>
-      <?php if (Auth::puede('empresas.gestionar')): ?><a href="<?= url('empresas.php') ?>">Empresas</a><?php endif; ?>
       <?php if (Auth::puede('usuarios.ver')): ?><a href="<?= url('usuarios.php') ?>">Usuarios</a><?php endif; ?>
       <?php if (Auth::puede('auditoria.ver')): ?><a href="<?= url('auditoria.php') ?>">Auditoría</a><?php endif; ?>
     </nav>

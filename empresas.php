@@ -63,7 +63,9 @@ foreach ($empresas as $em) {
     $contenido[(int) $em['id']] = Empresa::contenido((int) $em['id']);
 }
 
-Vista::render('empresas/index', [
+// Administrar las empresas no pertenece a ninguna de ellas: se muestra fuera
+// del menú de la empresa activa para que no parezca filtrado por ella.
+Vista::renderSistema('empresas/index', [
     'empresas'  => $empresas,
     'contenido' => $contenido,
     'editar'    => !empty($_GET['id']) ? Empresa::buscar((int) $_GET['id']) : null,

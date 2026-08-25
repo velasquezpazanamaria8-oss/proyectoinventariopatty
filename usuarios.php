@@ -27,9 +27,15 @@ if (($_GET['a'] ?? '') === 'eliminar') {
     Vista::redirigir('usuarios.php');
 }
 
+// Por defecto se ve quién tiene acceso a ESTA empresa. El superadmin puede
+// pedir la lista completa del sistema, que es otra pregunta distinta.
+$todos = Auth::esSuperAdmin() && !empty($_GET['todos']);
+
 Vista::render('usuarios/index', [
-    'usuarios' => Usuario::listar(trim($_GET['q'] ?? '')),
+    'usuarios' => Usuario::listar(trim($_GET['q'] ?? ''), $todos),
     'editar'   => !empty($_GET['id']) ? Usuario::buscar((int) $_GET['id']) : null,
     'roles'    => Usuario::roles(),
     'q'        => trim($_GET['q'] ?? ''),
+    'todos'    => $todos,
+    'puedeVerTodos' => Auth::esSuperAdmin(),
 ], 'Usuarios');

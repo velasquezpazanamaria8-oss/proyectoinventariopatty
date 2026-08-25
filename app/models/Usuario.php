@@ -9,12 +9,20 @@
 class Usuario
 {
     /** Usuarios con acceso a la empresa activa (o todos, si es superadmin). */
-    public static function listar(string $q = ''): array
+    /**
+     * Usuarios con acceso a la empresa activa.
+     *
+     * El superadmin puede pedir ver TODOS los del sistema, pero no por defecto:
+     * mostrárselos siempre llenaba la pantalla de gente marcada «sin acceso»
+     * —los de las otras empresas— y esa lista no responde a la pregunta que
+     * trae quien entra aquí, que es quién puede trabajar en esta empresa.
+     */
+    public static function listar(string $q = '', bool $todosDelSistema = false): array
     {
         $where = [];
         $p = [];
 
-        if (Auth::esSuperAdmin()) {
+        if (Auth::esSuperAdmin() && $todosDelSistema) {
             $join = 'LEFT JOIN usuario_empresa ue ON ue.usuario_id = u.id AND ue.empresa_id = :__empresa';
             $p   += Empresa::param();
         } else {

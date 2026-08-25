@@ -29,11 +29,20 @@
     <div class="alerta alerta-<?= e($f['tipo']) ?>"><?= e($f['mensaje']) ?></div>
   <?php endforeach; ?>
 
-  <h1 class="portada-titulo">Elija la empresa</h1>
-  <p class="portada-sub">
-    Todo lo que registre después —productos, movimientos, comprobantes y cotizaciones—
-    pertenece sólo a la empresa que elija. Son <strong><?= count($empresas) ?></strong> disponibles.
-  </p>
+  <div class="portada-encabezado">
+    <div>
+      <h1 class="portada-titulo">Elija la empresa</h1>
+      <p class="portada-sub">
+        Todo lo que registre después —productos, movimientos, comprobantes y cotizaciones—
+        pertenece sólo a la empresa que elija. Son <strong><?= count($empresas) ?></strong> disponibles.
+      </p>
+    </div>
+    <?php if ($puedeCrear): ?>
+      <div class="acciones">
+        <a class="btn btn-gris" href="<?= url('empresas.php') ?>">Administrar empresas</a>
+      </div>
+    <?php endif; ?>
+  </div>
 
   <div class="rejilla-empresas">
     <?php foreach ($empresas as $e):
