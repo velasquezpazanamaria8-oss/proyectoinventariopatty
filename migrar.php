@@ -431,6 +431,22 @@ try {
         $cambios++;
     } else { paso('[--] cotizacion_config ya existe'); }
 
+    // 6g-bis. Diseño libre: el lienzo
+    //
+    // El formulario de opciones sirve para la mayoría, pero el contador pide
+    // mover cosas de sitio de una empresa a otra. Quien lo necesite pasa a
+    // modo LIBRE y coloca los bloques donde quiera; el resto sigue en SIMPLE
+    // sin enterarse. Los bloques van en JSON: es una lista variable y no se
+    // consulta por sus valores.
+    if (!existeColumna('cotizacion_config', 'modo')) {
+        DB::query("ALTER TABLE cotizacion_config
+                     ADD modo ENUM('SIMPLE','LIBRE') NOT NULL DEFAULT 'SIMPLE',
+                     ADD bloques TEXT NULL,
+                     ADD alto_cabecera SMALLINT UNSIGNED NOT NULL DEFAULT 250");
+        paso('[OK] cotizacion_config: modo libre (bloques del lienzo)');
+        $cambios++;
+    } else { paso('[--] cotizacion_config ya tiene el modo libre'); }
+
     // Permiso de cotizaciones
     if (!(int) DB::valor("SELECT COUNT(*) FROM permisos WHERE clave = 'cotizaciones.gestionar'")) {
         $pid = DB::insertar('permisos', ['clave' => 'cotizaciones.gestionar',

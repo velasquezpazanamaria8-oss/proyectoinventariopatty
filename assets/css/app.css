@@ -256,3 +256,110 @@ table.tabla tr.sin-stock td{color:var(--suave)}
   .disenador-previa { position: static; }
   .previa-caja iframe { height: 70vh; }
 }
+
+/* ---------------------------- El lienzo de la cotización ----------------- */
+/* La hoja se dibuja a escala 1: 1 punto del PDF = 1 píxel. Así lo que se ve
+   colocado cae en el mismo sitio en el documento, sin factores de conversión
+   repartidos por el código. */
+.lienzo-barra {
+  display: flex; justify-content: space-between; align-items: center;
+  gap: 14px; flex-wrap: wrap; margin-bottom: 12px;
+}
+.lienzo-ayuda { display: block; font-size: 12px; color: var(--suave); margin-top: 2px; }
+.lienzo-usar { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; margin: 0 8px; }
+.lienzo-usar input { width: auto; }
+
+.lienzo-pantalla {
+  display: grid;
+  grid-template-columns: 250px 620px minmax(320px, 1fr);
+  gap: 14px; align-items: start;
+}
+.lienzo-panel { display: flex; flex-direction: column; gap: 12px; position: sticky; top: 14px; }
+.lienzo-nota { font-size: 12px; color: var(--suave); margin: 0 0 8px; }
+.lienzo-titulo-bloque { margin: 0 0 10px; font-weight: 600; font-size: 13px; }
+
+.lienzo-paleta { max-height: 340px; overflow-y: auto; }
+.lienzo-paleta h4 {
+  margin: 12px 0 6px; font-size: 11px; letter-spacing: .04em;
+  text-transform: uppercase; color: var(--suave);
+}
+.lienzo-paleta h4:first-of-type { margin-top: 0; }
+.ficha {
+  display: block; width: 100%; text-align: left; cursor: pointer;
+  border: 1px solid var(--linea); background: #fff; border-radius: 6px;
+  padding: 6px 9px; margin-bottom: 4px; font-size: 12.5px; color: inherit;
+}
+.ficha:hover { border-color: var(--azul-2); background: #F8FAFC; }
+.ficha small { display: block; font-size: 10.5px; color: var(--suave); }
+
+.props-rejilla { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 8px; }
+.lienzo-check { display: flex; align-items: center; gap: 6px; font-size: 12.5px; margin-top: 8px; }
+.lienzo-check input { width: auto; }
+
+/* La hoja */
+.lienzo-hoja-col { overflow-x: auto; }
+.hoja {
+  width: 595px; background: #fff; border: 1px solid var(--linea);
+  border-radius: 4px; box-shadow: 0 2px 12px rgba(15, 23, 42, .10);
+  position: relative; user-select: none;
+}
+.zona { position: relative; }
+.zona-nombre {
+  position: absolute; top: 3px; left: 6px; font-size: 9px; letter-spacing: .08em;
+  color: #94A3B8; pointer-events: none;
+}
+/* El margen de impresión, marcado para no colocar nada fuera de él. */
+.zona-cabecera::before, .zona-pie::before {
+  content: ''; position: absolute; inset: 0 30px; border-left: 1px dashed #E2E8F0;
+  border-right: 1px dashed #E2E8F0; pointer-events: none;
+}
+.banda-tabla {
+  height: 90px; background: repeating-linear-gradient(45deg, #F8FAFC, #F8FAFC 8px, #F1F5F9 8px, #F1F5F9 16px);
+  border-top: 1px solid var(--linea); border-bottom: 1px solid var(--linea);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 10.5px; color: #94A3B8; text-align: center; padding: 0 20px;
+}
+.divisor { height: 6px; background: #E2E8F0; cursor: ns-resize; }
+.divisor:hover { background: var(--azul-2); }
+
+.bloque {
+  position: absolute; box-sizing: border-box; cursor: move;
+  outline: 1px dashed rgba(100, 116, 139, .45);
+}
+.bloque:hover { outline-color: var(--azul-2); }
+.bloque.sel { outline: 2px solid var(--azul-2); }
+.bl-cuerpo {
+  /* Arial tiene las mismas medidas que la Helvetica del PDF, así que lo que
+     aquí cabe en el ancho también cabe impreso. */
+  font-family: Arial, Helvetica, sans-serif;
+  white-space: pre-wrap; overflow: hidden; pointer-events: none;
+}
+.bl-logo img { max-width: 100%; max-height: 100%; object-fit: contain; }
+.bl-cliente, .bl-totales, .bl-firmas {
+  font-size: 8px; color: #64748B; border: 1px solid #CBD5E1; padding: 2px 4px;
+}
+.bl-rotulo { display: block; font-weight: 700; font-size: 8.5px; }
+.bl-linea { display: block; }
+.bl-fuerte { display: block; color: #fff; font-weight: 700; padding: 2px 4px; }
+.bl-firmas { display: flex; justify-content: space-between; border: 0; border-top: 1px solid #CBD5E1; }
+.bl-firma.der { text-align: right; }
+.bl-parrafo { font-family: Arial, Helvetica, sans-serif; }
+
+.tirador {
+  position: absolute; right: -4px; bottom: -4px; width: 9px; height: 9px;
+  background: var(--azul-2); border: 1px solid #fff; border-radius: 2px;
+  cursor: nwse-resize;
+}
+
+.lienzo-previa { position: sticky; top: 14px; }
+
+/* Debajo de 1500 px las tres columnas no caben: el PDF pasa a ocupar el ancho
+   entero, debajo de la hoja. */
+@media (max-width: 1500px) {
+  .lienzo-pantalla { grid-template-columns: 230px minmax(0, 1fr); }
+  .lienzo-previa { grid-column: 1 / -1; position: static; }
+}
+@media (max-width: 900px) {
+  .lienzo-pantalla { grid-template-columns: 1fr; }
+  .lienzo-panel { position: static; }
+}

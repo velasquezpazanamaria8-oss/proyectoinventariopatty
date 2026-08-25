@@ -31,6 +31,13 @@ class CotizacionConfig
             $c['empresa_id'] = $empresaId;
         }
         $c['columnas'] = self::columnas($c['columnas'] ?? null);
+
+        // El lienzo nunca se abre en blanco: si la empresa no ha guardado
+        // bloques todavía, se le dan los que reproducen su diseño simple.
+        $c['modo']          = ($c['modo'] ?? 'SIMPLE') === 'LIBRE' ? 'LIBRE' : 'SIMPLE';
+        $c['alto_cabecera'] = (int) ($c['alto_cabecera'] ?? 250);
+        $c['bloques']       = CotizacionDiseno::normalizar($c['bloques'] ?? null)
+                              ?: CotizacionDiseno::porDefecto($c);
         return $c;
     }
 
@@ -50,6 +57,7 @@ class CotizacionConfig
             'mostrar_telefono' => 0, 'mostrar_fecha' => 1,
             'columnas' => null, 'condiciones' => null, 'notas' => null,
             'firma_izq' => null, 'firma_der' => 'CLIENTE', 'incluye_igv' => 1,
+            'modo' => 'SIMPLE', 'bloques' => null, 'alto_cabecera' => 250,
         ];
     }
 
@@ -139,12 +147,49 @@ class CotizacionConfig
      */
     public static function desdeFormulario(array $d): array
     {
-        $cfg = self::normalizar($d);
-        $cfg['columnas']  = self::columnas($cfg['columnas']);
-        $cfg['logo_ruta'] = DB::valor(
-            'SELECT logo_ruta FROM cotizacion_config WHERE empresa_id = :e',
-            [':e' => Empresa::id()]);
+        $guardada = self::actual();
+
+        // Hay dos pantallas —las opciones y el lienzo— y cada una manda lo
+        // suyo. Lo que no venga se toma de lo guardado, para que la previa
+        // enseñe el documento entero y no la mitad.
+        if (array_key_exists('titulo', $d)) {          // viene del formulario simple
+            $cfg = self::normalizar($d);
+            $cfg['columnas'] = self::columnas($cfg['columnas']);
+        } else {
+            $cfg = $guardada;
+        }
+        $cfg['logo_ruta'] = $guardada['logo_ruta'] ?? null;
+
+        $cfg['modo'] = ($d['modo'] ?? $guardada['modo']) === 'LIBRE' ? 'LIBRE' : 'SIMPLE';
+        $cfg['alto_cabecera'] = isset($d['alto_cabecera'])
+            ? max(80, min(600, (int) $d['alto_cabecera']))
+            : $guardada['alto_cabecera'];
+        $cfg['bloques'] = isset($d['bloques'])
+            ? CotizacionDiseno::normalizar($d['bloques'])
+            : $guardada['bloques'];
+
         return $cfg;
+    }
+
+    /** Guarda lo que se compuso en el lienzo. No toca las opciones simples. */
+    public static function guardarDiseno(array $bloques, int $altoCabecera, bool $libre): void
+    {
+        $empresaId = Empresa::id();
+        $datos = [
+            'modo'           => $libre ? 'LIBRE' : 'SIMPLE',
+            'bloques'        => json_encode(CotizacionDiseno::normalizar($bloques), JSON_UNESCAPED_UNICODE),
+            'alto_cabecera'  => max(80, min(600, $altoCabecera)),
+            'actualizado_en' => date('Y-m-d H:i:s'),
+        ];
+
+        if (DB::valor('SELECT empresa_id FROM cotizacion_config WHERE empresa_id = :e', [':e' => $empresaId])) {
+            DB::actualizar('cotizacion_config', $datos, 'empresa_id = :e', [':e' => $empresaId]);
+        } else {
+            // Nunca abrió el formulario simple: se crea la fila con lo de fábrica.
+            DB::insertar('cotizacion_config',
+                ['empresa_id' => $empresaId] + $datos + self::normalizar([]));
+        }
+        Auditoria::registrar('DISENO_COTIZACION', 'cotizacion_config', $empresaId, ['modo' => $datos['modo']]);
     }
 
     public static function guardar(array $d, ?array $logo = null): void

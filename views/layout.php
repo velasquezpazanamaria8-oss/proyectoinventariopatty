@@ -58,6 +58,7 @@ $ver = function (string $ruta): string {
         <span class="menu-grupo">Ventas</span>
         <a href="<?= url('cotizaciones.php') ?>">Cotizaciones</a>
         <a href="<?= url('cotizacion_diseno.php') ?>">Diseño de cotización</a>
+        <a href="<?= url('cotizacion_lienzo.php') ?>">Lienzo de cotización</a>
       <?php endif; ?>
 
       <span class="menu-grupo">Consultas</span>

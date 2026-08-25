@@ -30,6 +30,16 @@ class CotizacionPdf
 
     public function generar(): string
     {
+        // En modo libre la cabecera y el pie los compuso el usuario en el
+        // lienzo; la tabla es la misma en los dos, porque es lo único que no
+        // se coloca a mano: crece con los ítems y parte de página sola.
+        if (($this->cfg['modo'] ?? 'SIMPLE') === 'LIBRE') {
+            $this->cabeceraLibre();
+            $this->tabla();
+            $this->pieLibre();
+            return $this->pdf->generar();
+        }
+
         $this->cabecera();
         $this->bloqueCliente();
         $this->tabla();
@@ -323,5 +333,204 @@ class CotizacionPdf
             $p->escribir((string) $nombre, $x, $y - 11, $anchoFirma, 'centro', false, 8, self::GRIS);
         }
         $p->moverA($y - 24);
+    }
+
+    // ------------------------------------------------------------------
+    // Modo libre: los bloques que el usuario colocó en el lienzo.
+    //
+    // Las coordenadas del lienzo se cuentan desde arriba, que es como se mira
+    // una hoja; el PDF cuenta desde abajo. La resta se hace aquí, en un solo
+    // sitio, para que ningún bloque tenga que saberlo.
+    // ------------------------------------------------------------------
+
+    private function cabeceraLibre(): void
+    {
+        $origen = $this->pdf->alto();                 // el y = 0 del lienzo
+        foreach ($this->bloquesDe('cabecera') as $b) {
+            $this->pintar($b, $origen);
+        }
+        // La tabla empieza donde termina la zona de cabecera, ponga el usuario
+        // sus bloques donde los ponga: así una cabecera alta no se come los
+        // ítems ni una baja deja media hoja en blanco.
+        $this->pdf->moverA($origen - (float) ($this->cfg['alto_cabecera'] ?? 250));
+    }
+
+    private function pieLibre(): void
+    {
+        $p = $this->pdf;
+        $origen = $p->cursor() - 6;
+
+        // Cuánto ocupa el pie no se sabe hasta pintarlo, pero sí dónde empieza
+        // su bloque más bajo. Si eso ya no cabe se pasa a otra página entera:
+        // partir las firmas queda peor que una hoja de más.
+        $masBajo = 0;
+        foreach ($this->bloquesDe('pie') as $b) {
+            $masBajo = max($masBajo, $b['y'] + 30);
+        }
+        if ($origen - $masBajo < $p->margen()) {
+            $p->abrirPagina();
+            $origen = $p->alto() - $p->margen();
+        }
+
+        foreach ($this->bloquesDe('pie') as $b) {
+            $this->pintar($b, $origen);
+        }
+        $p->moverA($origen - $masBajo);
+    }
+
+    /** Los bloques de una zona, ya validados. */
+    private function bloquesDe(string $zona): array
+    {
+        $bloques = CotizacionDiseno::normalizar($this->cfg['bloques'] ?? null);
+        return array_values(array_filter($bloques, fn($b) => $b['zona'] === $zona));
+    }
+
+    private function pintar(array $b, float $origen): void
+    {
+        $p = $this->pdf;
+        $y = $origen - $b['y'];               // borde superior del bloque, ya en PDF
+
+        switch ($b['tipo']) {
+            case 'caja':
+                $p->caja($b['x'], $y, $b['w'], $b['h'], $b['color']);
+                break;
+
+            case 'linea':
+                $p->linea($b['x'], $y, $b['w'], $b['color'], 0.8);
+                break;
+
+            case 'logo':
+                $ruta = (string) ($this->cfg['logo_ruta'] ?? '');
+                if ($ruta !== '' && is_file(BASE_PATH . '/' . $ruta)) {
+                    $p->imagen(BASE_PATH . '/' . $ruta, $b['x'], $y, $b['w'], $b['h']);
+                }
+                break;
+
+            case 'texto':
+                $this->textoLibre($b['texto'], $b, $y);
+                break;
+
+            case 'dato':
+                $txt = CotizacionDiseno::valor($b['clave'], $this->cot, $this->emp, $this->cfg);
+                // Un dato que no existe —una empresa sin teléfono, una cotización
+                // sin referencia— no deja el hueco pintado: no sale y ya.
+                if ($txt !== '') {
+                    $this->textoLibre($txt, $b, $y);
+                }
+                break;
+
+            case 'cliente':
+                $this->fichaCliente($b['x'], $y, $b['w'], $b['color']);
+                break;
+
+            case 'totales':
+                $this->bloqueTotales($b['x'], $y, $b['w'], $b['color']);
+                break;
+
+            case 'firmas':
+                $this->bloqueFirmas($b['x'], $y, $b['w'], $b['color']);
+                break;
+
+            case 'parrafo':
+                $this->bloqueParrafo($b['clave'], $b['x'], $y, $b['w'], $b['tam'], $b['color']);
+                break;
+        }
+    }
+
+    /** Texto de un bloque: se parte en varias líneas si no cabe en el ancho. */
+    private function textoLibre(string $txt, array $b, float $yTop): void
+    {
+        $p = $this->pdf;
+        $y = $yTop - $b['tam'] * 0.85;        // del borde superior a la línea base
+        foreach ($p->repartir($txt, $b['w'], $b['tam']) as $linea) {
+            $p->escribir($linea, $b['x'], $y, $b['w'], $b['alin'],
+                (bool) $b['negrita'], $b['tam'], $b['color']);
+            $y -= $b['tam'] * 1.2;
+        }
+    }
+
+    private function fichaCliente(float $x, float $yTop, float $ancho, string $color): void
+    {
+        $p = $this->pdf;
+
+        $p->caja($x, $yTop, $ancho, 15, '#F1F5F9');
+        $p->marco($x, $yTop, $ancho, 62, self::LINEA);
+        $p->escribir('CLIENTE', $x, $yTop - 11, $ancho, 'izq', true, 8.5, $color);
+
+        // La empresa y la dirección ocupan la fila entera: son las que se cortan
+        // si se les da media. El RUC y el correo sí caben a dos columnas.
+        $y = $yTop - 26;
+        foreach (['Empresa' => $this->cot['cliente_nombre'],
+                  'Dirección' => $this->cot['cliente_direccion'] ?: '-'] as $et => $valor) {
+            $p->escribir($et . ':', $x + 6, $y, 60, 'izq', false, 7.5, self::GRIS);
+            $p->escribir((string) $valor, $x + 58, $y, $ancho - 64, 'izq', false, 8.5, self::TEXTO);
+            $y -= 13;
+        }
+        $col = 0;
+        foreach (['RUC' => $this->cot['cliente_ruc'] ?: '-',
+                  'E-mail' => $this->cot['cliente_email'] ?: '-'] as $et => $valor) {
+            $xc = $x + 6 + $col * ($ancho / 2);
+            $p->escribir($et . ':', $xc, $y, 60, 'izq', false, 7.5, self::GRIS);
+            $p->escribir((string) $valor, $xc + 52, $y, $ancho / 2 - 60, 'izq', false, 8.5, self::TEXTO);
+            $col++;
+        }
+    }
+
+    private function bloqueTotales(float $x, float $yTop, float $ancho, string $color): void
+    {
+        $p = $this->pdf;
+        $simbolo  = $this->emp['simbolo'] ?? 'S/';
+        $etiqueta = min(90, $ancho * 0.5);
+        $y = $yTop;
+
+        foreach ([['SUBTOTAL', $this->cot['subtotal'], false],
+                  ['IGV (18%)', $this->cot['igv'], false],
+                  ['TOTAL', $this->cot['total'], true]] as [$et, $val, $fuerte]) {
+            $importe = $simbolo . ' ' . Vista::num($val, 2);
+            if ($fuerte) {
+                $p->caja($x, $y, $ancho, 18, $color);
+                $p->escribir($et, $x, $y - 12, $etiqueta, 'izq', true, 9.5, '#FFFFFF');
+                $p->escribir($importe, $x + $etiqueta, $y - 12, $ancho - $etiqueta, 'der', true, 9.5, '#FFFFFF');
+                $y -= 18;
+            } else {
+                $p->escribir($et, $x, $y - 11, $etiqueta, 'izq', false, 8.5, self::GRIS);
+                $p->escribir($importe, $x + $etiqueta, $y - 11, $ancho - $etiqueta, 'der', false, 8.5, self::TEXTO);
+                $y -= 14;
+            }
+        }
+    }
+
+    private function bloqueFirmas(float $x, float $yTop, float $ancho, string $color): void
+    {
+        $p = $this->pdf;
+        $anchoFirma = $ancho * 0.38;
+        foreach ([[$x, $this->cfg['firma_izq'] ?: $this->emp['razon_social']],
+                  [$x + $ancho - $anchoFirma, $this->cfg['firma_der'] ?: 'CLIENTE']] as [$xf, $nombre]) {
+            $p->linea($xf, $yTop, $anchoFirma, self::LINEA, 0.8);
+            $p->escribir((string) $nombre, $xf, $yTop - 11, $anchoFirma, 'centro', false, 8, $color);
+        }
+    }
+
+    private function bloqueParrafo(string $clave, float $x, float $yTop, float $ancho,
+                                   float $tam, string $color): void
+    {
+        $texto = trim((string) ($this->cfg[$clave] ?? ''));
+        if ($texto === '') {
+            return;                            // sin condiciones no hay título suelto
+        }
+        $p = $this->pdf;
+        $y = $yTop;
+
+        if ($clave === 'condiciones') {
+            $p->escribir('TÉRMINOS Y CONDICIONES', $x, $y - $tam, $ancho, 'izq', true,
+                $tam + 1, $this->cfg['color']);
+            $y -= $tam * 2;
+        }
+        foreach (preg_split('/\r\n|\r|\n/', $texto) as $linea) {
+            foreach ($p->repartir($linea, $ancho, $tam) as $trozo) {
+                $p->escribir($trozo, $x, $y - $tam, $ancho, 'izq', false, $tam, $color);
+                $y -= $tam * 1.3;
+            }
+        }
     }
 }

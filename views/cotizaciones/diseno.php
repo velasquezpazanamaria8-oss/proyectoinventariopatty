@@ -15,7 +15,10 @@ foreach (array_keys($campos) as $c) {
   <div class="tarjeta">
     <div class="tarjeta-cab">
       <h2>Diseño de la cotización — <?= e($empresa['razon_social']) ?></h2>
-      <button class="btn" type="submit">Guardar diseño</button>
+      <div class="acciones">
+        <a class="btn btn-gris" href="<?= url('cotizacion_lienzo.php') ?>">Colocar a mano (lienzo)</a>
+        <button class="btn" type="submit">Guardar diseño</button>
+      </div>
     </div>
     <div class="tarjeta-cuerpo">
       <div class="alerta alerta-info">
