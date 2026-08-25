@@ -49,6 +49,7 @@ foreach (CotizacionDiseno::claves() as $clave) {
 
 Vista::render('cotizaciones/lienzo', [
     'cfg'      => $cfg,
+    'muestra'  => $muestra,
     'empresa'  => $empresa,
     'valores'  => $valores,
     'datos'    => CotizacionDiseno::DATOS,

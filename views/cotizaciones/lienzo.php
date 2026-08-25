@@ -17,6 +17,14 @@ $estado = [
     'logo'         => !empty($cfg['logo_ruta'])
                         ? url('cotizacion_diseno.php?a=logo&v=' . urlencode((string) ($cfg['actualizado_en'] ?? '')))
                         : null,
+    // Los datos del cliente sin etiqueta: la ficha pone la suya delante, y con
+    // los valores ya etiquetados salía «Dirección: Dirección: ...».
+    'cliente'      => [
+        'nombre'    => $muestra['cliente_nombre'],
+        'direccion' => $muestra['cliente_direccion'],
+        'ruc'       => $muestra['cliente_ruc'],
+        'email'     => $muestra['cliente_email'],
+    ],
     'rotulos'      => CotizacionDiseno::ROTULOS,
     'previa'       => url('cotizacion_previa.php'),
 ];
@@ -26,10 +34,15 @@ $estado = [
   <div>
     <strong>Lienzo — <?= e($empresa['razon_social']) ?></strong>
     <span class="lienzo-ayuda">
-      Arrastre los bloques. La tabla no se mueve: crece con las líneas de cada cotización.
+      Arrastre los bloques. Ctrl+Z deshace y Ctrl+Y rehace.
+      La tabla no se mueve: crece con las líneas de cada cotización.
     </span>
   </div>
   <div class="acciones">
+    <button type="button" class="btn btn-sm btn-gris" id="btnDeshacer"
+            title="Deshacer (Ctrl+Z)" disabled>↶ Deshacer</button>
+    <button type="button" class="btn btn-sm btn-gris" id="btnRehacer"
+            title="Rehacer (Ctrl+Y o Ctrl+Mayús+Z)" disabled>↷ Rehacer</button>
     <a class="btn btn-sm btn-gris" href="<?= url('cotizacion_diseno.php') ?>">Volver a las opciones</a>
     <form method="post" style="display:inline"
           data-confirmar="¿Volver a la disposición de fábrica? Se pierde lo que haya colocado.">

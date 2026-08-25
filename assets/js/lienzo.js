@@ -35,6 +35,8 @@
   var divisor = document.getElementById('divisor');
   var marco = document.getElementById('marcoPrevia');
   var estadoPrevia = document.getElementById('previaEstado');
+  var btnDeshacer = document.getElementById('btnDeshacer');
+  var btnRehacer = document.getElementById('btnRehacer');
 
   // ---------------------------------------------------------------- dibujo
 
@@ -108,22 +110,31 @@
         d.textContent = 'sin logo cargado';
       }
     } else if (b.tipo === 'cliente') {
+      var rc = rot(b);
       d.style.height = '62px';
-      d.innerHTML = '<span class="bl-rotulo" style="color:' + b.color + '">CLIENTE</span>'
-        + '<span class="bl-linea">Empresa: ' + (S.valores['cliente.nombre'] || '') + '</span>'
-        + '<span class="bl-linea">Dirección: ' + (S.valores['cliente.direccion'] || '') + '</span>'
-        + '<span class="bl-linea">RUC · E-mail</span>';
+      d.appendChild(trozo('bl-rotulo', rc.rotulo, b.color));
+      d.appendChild(trozo('bl-linea', etiquetar(rc.empresa, S.cliente.nombre)));
+      d.appendChild(trozo('bl-linea', etiquetar(rc.direccion, S.cliente.direccion)));
+      d.appendChild(trozo('bl-linea', etiquetar(rc.ruc, S.cliente.ruc)
+        + '   ' + etiquetar(rc.email, S.cliente.email)));
     } else if (b.tipo === 'totales') {
-      d.innerHTML = '<span class="bl-linea">SUBTOTAL</span><span class="bl-linea">IGV (18%)</span>'
-        + '<span class="bl-fuerte" style="background:' + b.color + '">TOTAL</span>';
+      var rt = rot(b);
+      d.appendChild(trozo('bl-linea', rt.subtotal));
+      d.appendChild(trozo('bl-linea', rt.igv));
+      var fuerte = trozo('bl-fuerte', rt.total);
+      fuerte.style.background = b.color;
+      d.appendChild(fuerte);
     } else if (b.tipo === 'firmas') {
-      d.innerHTML = '<span class="bl-firma">' + S.firmaIzq + '</span>'
-        + '<span class="bl-firma der">' + S.firmaDer + '</span>';
+      var rf = rot(b);
+      d.appendChild(trozo('bl-firma', rf.izq || S.firmaIzq));
+      d.appendChild(trozo('bl-firma der', rf.der || S.firmaDer));
     } else if (b.tipo === 'parrafo') {
-      var t = (b.clave === 'notas' ? S.notas : S.condiciones) || '(sin texto: se escribe en las opciones)';
+      var t = (b.clave === 'notas' ? S.notas : S.condiciones)
+        || '(sin texto: se escribe en las opciones)';
+      var titulo = rot(b).titulo;
       d.style.fontSize = b.tam + 'px';
       d.style.color = b.color;
-      d.textContent = (b.clave === 'condiciones' ? 'TÉRMINOS Y CONDICIONES\n' : '') + t;
+      d.textContent = (titulo ? titulo + String.fromCharCode(10) : '') + t;
     }
     return d;
   }
@@ -191,16 +202,21 @@
     return c;
   }
 
-  function entrada(tipo, valor, alCambiar, extra) {
+  function entrada(tipo, valor, alCambiar, extra, clave) {
     var i = document.createElement('input');
     i.type = tipo;
     i.value = valor;
     Object.keys(extra || {}).forEach(function (k) { i.setAttribute(k, extra[k]); });
-    i.addEventListener('input', function () { alCambiar(i.value); cambio(); });
+    // La clave agrupa: escribir «CLIENTE» letra a letra es UN cambio, no ocho,
+    // o deshacer devolvería una letra cada vez.
+    i.addEventListener('input', function () { alCambiar(i.value); cambio(clave || null); });
     return i;
   }
 
   var propsCampos = {};
+
+  /** Clave con la que se agrupan los cambios seguidos sobre un mismo campo. */
+  function agrup(nombre) { return 'p' + sel + ':' + nombre; }
 
   function verProps() {
     props.innerHTML = '';
@@ -218,7 +234,7 @@
 
     if (b.tipo === 'texto') {
       props.appendChild(campo('Texto', entrada('text', b.texto || '',
-        function (v) { b.texto = v; }, { maxlength: 200 })));
+        function (v) { b.texto = v; }, { maxlength: 200 }, agrup('texto'))));
     }
 
     // Los rótulos que imprime la pieza —«CLIENTE», «SUBTOTAL»— se escriben
@@ -228,7 +244,7 @@
       Object.keys(S.rotulos[b.tipo]).forEach(function (k) {
         var def = S.rotulos[b.tipo][k];
         var i = entrada('text', b.textos[k] !== undefined ? b.textos[k] : def[1],
-          function (v) { b.textos[k] = v; }, { maxlength: 40 });
+          function (v) { b.textos[k] = v; }, { maxlength: 40 }, agrup('rot:' + k));
         if (b.tipo === 'firmas') i.placeholder = k === 'izq' ? S.firmaIzq : S.firmaDer;
         props.appendChild(campo(def[0], i));
       });
@@ -236,14 +252,14 @@
 
     var rejilla = document.createElement('div');
     rejilla.className = 'props-rejilla';
-    propsCampos.x = entrada('number', b.x, function (v) { b.x = +v; });
-    propsCampos.y = entrada('number', b.y, function (v) { b.y = +v; });
-    propsCampos.w = entrada('number', b.w, function (v) { b.w = +v; });
+    propsCampos.x = entrada('number', b.x, function (v) { b.x = +v; }, null, agrup('x'));
+    propsCampos.y = entrada('number', b.y, function (v) { b.y = +v; }, null, agrup('y'));
+    propsCampos.w = entrada('number', b.w, function (v) { b.w = +v; }, null, agrup('w'));
     rejilla.appendChild(campo('X', propsCampos.x));
     rejilla.appendChild(campo('Y', propsCampos.y));
     rejilla.appendChild(campo('Ancho', propsCampos.w));
     if (b.tipo === 'caja' || b.tipo === 'logo') {
-      propsCampos.h = entrada('number', b.h, function (v) { b.h = +v; });
+      propsCampos.h = entrada('number', b.h, function (v) { b.h = +v; }, null, agrup('h'));
       rejilla.appendChild(campo('Alto', propsCampos.h));
     }
     props.appendChild(rejilla);
@@ -252,7 +268,7 @@
       var r2 = document.createElement('div');
       r2.className = 'props-rejilla';
       r2.appendChild(campo('Tamaño', entrada('number', b.tam,
-        function (v) { b.tam = +v; }, { min: 5, max: 40, step: 0.5 })));
+        function (v) { b.tam = +v; }, { min: 5, max: 40, step: 0.5 }, agrup('tam'))));
 
       if (b.tipo !== 'parrafo') {
         var alin = document.createElement('select');
@@ -268,7 +284,8 @@
       props.appendChild(r2);
     }
 
-    props.appendChild(campo('Color', entrada('color', b.color, function (v) { b.color = v.toUpperCase(); })));
+    props.appendChild(campo('Color', entrada('color', b.color,
+      function (v) { b.color = v.toUpperCase(); }, null, agrup('color'))));
 
     if (b.tipo === 'dato' || b.tipo === 'texto') {
       var neg = document.createElement('label');
@@ -366,7 +383,11 @@
     pintar();
   });
 
-  ['pointerup', 'pointercancel'].forEach(function (ev) {
+  // También al perder el foco: si se suelta el ratón fuera de la ventana no
+  // llega el pointerup, y el arrastre se quedaría sin anotar en el historial
+  // —el bloque movido, pero el siguiente «deshacer» saltando a un estado
+  // anterior y llevándose el movimiento por delante—.
+  ['pointerup', 'pointercancel', 'blur'].forEach(function (ev) {
     window.addEventListener(ev, function () {
       if (arrastre) { arrastre = null; cambio(); }
     });
@@ -432,12 +453,115 @@
     }
   });
 
+
+  // ------------------------------------------------------------- historial
+  //
+  // Se guardan estados enteros, no las acciones que llevan de uno a otro. Un
+  // diseño son unas decenas de bloques —unos pocos kilobytes—, así que copiar
+  // el estado sale barato y evita tener que escribir el inverso de cada
+  // operación, que es de donde salen los deshacer que dejan el documento a
+  // medias.
+
+  var TOPE = 120;              // cuántos pasos atrás se recuerdan
+  var historia = [];
+  var pos = -1;                // dónde estamos dentro de historia
+  var claveUltima = null;
+  var horaUltima = 0;
+  var restaurando = false;
+
+  function instantanea() {
+    return JSON.stringify({ b: bloques, a: altoCabecera });
+  }
+
+  /**
+   * Anota el estado actual.
+   *
+   * Con `clave`, los cambios seguidos sobre lo mismo se funden en un solo
+   * paso: escribir un rótulo letra a letra tiene que deshacerse de una vez, no
+   * carácter a carácter. Sin clave, cada llamada es un paso propio.
+   */
+  function registrar(clave) {
+    if (restaurando) return;
+
+    var ahora = new Date().getTime();
+    var estado = instantanea();
+    if (pos >= 0 && historia[pos] === estado) return;   // nada cambió
+
+    var funde = clave && clave === claveUltima && (ahora - horaUltima) < 900;
+    claveUltima = clave || null;
+    horaUltima = ahora;
+
+    if (funde && pos >= 0) {
+      historia[pos] = estado;
+    } else {
+      // Al cambiar algo después de haber deshecho, lo que había por delante
+      // deja de tener sentido y se descarta.
+      historia = historia.slice(0, pos + 1);
+      historia.push(estado);
+      if (historia.length > TOPE) historia.shift();
+      pos = historia.length - 1;
+    }
+    botones();
+  }
+
+  function restaurar(estado) {
+    var d = JSON.parse(estado);
+    restaurando = true;
+    bloques = d.b;
+    altoCabecera = d.a;
+    if (sel >= bloques.length) sel = -1;    // el bloque elegido pudo no existir
+    claveUltima = null;                     // no fundir con lo que hubiera antes
+    pintar();
+    verProps();
+    previa();
+    restaurando = false;
+    botones();
+  }
+
+  function deshacer() {
+    if (pos <= 0) return;
+    pos--;
+    restaurar(historia[pos]);
+  }
+
+  function rehacer() {
+    if (pos >= historia.length - 1) return;
+    pos++;
+    restaurar(historia[pos]);
+  }
+
+  function botones() {
+    if (btnDeshacer) btnDeshacer.disabled = pos <= 0;
+    if (btnRehacer) btnRehacer.disabled = pos >= historia.length - 1;
+  }
+
+  if (btnDeshacer) btnDeshacer.addEventListener('click', deshacer);
+  if (btnRehacer) btnRehacer.addEventListener('click', rehacer);
+
+  document.addEventListener('keydown', function (ev) {
+    if (!(ev.ctrlKey || ev.metaKey)) return;
+
+    // Dentro de una casilla manda el deshacer del navegador: ahí se está
+    // escribiendo texto, y quitárselo sorprendería más de lo que ayuda.
+    var f = document.activeElement;
+    if (f && /input|select|textarea/i.test(f.tagName)) return;
+
+    var tecla = ev.key.toLowerCase();
+    if (tecla === 'z' && !ev.shiftKey) { deshacer(); ev.preventDefault(); }
+    else if (tecla === 'y' || (tecla === 'z' && ev.shiftKey)) { rehacer(); ev.preventDefault(); }
+  });
+
   // -------------------------------------------------------------- previa
 
   var espera = null;
 
-  function cambio() {
+  function cambio(clave) {
+    registrar(clave);
     pintar();
+    previa();
+  }
+
+  function previa() {
     clearTimeout(espera);
     estadoPrevia.textContent = 'pendiente…';
     estadoPrevia.className = 'previa-estado trabajando';
@@ -473,5 +597,6 @@
 
   pintar();
   verProps();
+  registrar();          // el punto de partida, para poder volver a él
   dibujarPrevia();
 })();

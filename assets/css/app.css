@@ -363,3 +363,7 @@ table.tabla tr.sin-stock td{color:var(--suave)}
   .lienzo-pantalla { grid-template-columns: 1fr; }
   .lienzo-panel { position: static; }
 }
+
+/* Deshacer/rehacer: sin nada que deshacer el botón se ve apagado, para que no
+   parezca que la pulsación se perdió. */
+.lienzo-barra .btn:disabled { opacity: .45; cursor: default; }
