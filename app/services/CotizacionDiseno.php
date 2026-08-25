@@ -61,6 +61,37 @@ class CotizacionDiseno
         'parrafo' => ['nombre' => 'Texto del pie',     'zonas' => ['pie']],
     ];
 
+    /**
+     * Rótulos que imprime cada pieza y que se pueden cambiar desde el lienzo.
+     *
+     * Son textos fijos del documento —«CLIENTE», «SUBTOTAL»— que hasta ahora
+     * estaban escritos en el código. Cada empresa los llama a su manera, y no
+     * poder tocarlos era justo lo que obligaba a mantener plantillas aparte.
+     * Vacío significa: no imprimir ese rótulo (o, en las firmas, usar el
+     * nombre que ya está en las opciones).
+     */
+    public const ROTULOS = [
+        'cliente' => [
+            'rotulo'    => ['Título del recuadro', 'CLIENTE'],
+            'empresa'   => ['Etiqueta de la empresa', 'Empresa'],
+            'direccion' => ['Etiqueta de la dirección', 'Dirección'],
+            'ruc'       => ['Etiqueta del RUC', 'RUC'],
+            'email'     => ['Etiqueta del e-mail', 'E-mail'],
+        ],
+        'totales' => [
+            'subtotal' => ['Subtotal', 'SUBTOTAL'],
+            'igv'      => ['IGV', 'IGV (18%)'],
+            'total'    => ['Total', 'TOTAL'],
+        ],
+        'firmas' => [
+            'izq' => ['Firma izquierda', ''],
+            'der' => ['Firma derecha', ''],
+        ],
+        'parrafo' => [
+            'titulo' => ['Título encima del texto', ''],
+        ],
+    ];
+
     private const TIPOS = ['dato', 'texto', 'logo', 'caja', 'linea', 'cliente', 'totales', 'firmas', 'parrafo'];
     private const ZONAS = ['cabecera', 'pie'];
     private const ALINS = ['izq', 'centro', 'der'];
@@ -133,6 +164,20 @@ class CotizacionDiseno
             } elseif ($tipo === 'texto') {
                 $n['texto'] = mb_substr(trim((string) ($b['texto'] ?? '')), 0, 200);
                 if ($n['texto'] === '') continue;      // un texto vacío es un bloque invisible
+            }
+
+            if (isset(self::ROTULOS[$tipo])) {
+                $dados = is_array($b['textos'] ?? null) ? $b['textos'] : [];
+                $n['textos'] = [];
+                foreach (self::ROTULOS[$tipo] as $k => [, $porDefecto]) {
+                    // Las condiciones venían con su título puesto desde
+                    // siempre; las notas nunca lo llevaron.
+                    if ($tipo === 'parrafo' && $k === 'titulo' && $n['clave'] === 'condiciones') {
+                        $porDefecto = 'TÉRMINOS Y CONDICIONES';
+                    }
+                    $n['textos'][$k] = mb_substr(
+                        trim((string) ($dados[$k] ?? $porDefecto)), 0, 40);
+                }
             }
 
             $out[] = $n;

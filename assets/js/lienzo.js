@@ -59,6 +59,29 @@
     return b.tipo;
   }
 
+  /** Los rótulos del bloque, con los de fábrica si aún no tiene. */
+  function rot(b) {
+    var r = b.textos || {};
+    var def = S.rotulos[b.tipo] || {};
+    var out = {};
+    Object.keys(def).forEach(function (k) {
+      out[k] = r[k] !== undefined ? r[k] : def[k][1];
+    });
+    return out;
+  }
+
+  function etiquetar(etiqueta, valor) {
+    return (etiqueta ? etiqueta + ': ' : '') + (valor || '');
+  }
+
+  function trozo(clase, texto, color) {
+    var s = document.createElement('span');
+    s.className = clase;
+    s.textContent = texto || '';
+    if (color) s.style.color = color;
+    return s;
+  }
+
   function cuerpo(b) {
     var d = document.createElement('div');
     d.className = 'bl-cuerpo bl-' + b.tipo;
@@ -196,6 +219,19 @@
     if (b.tipo === 'texto') {
       props.appendChild(campo('Texto', entrada('text', b.texto || '',
         function (v) { b.texto = v; }, { maxlength: 200 })));
+    }
+
+    // Los rótulos que imprime la pieza —«CLIENTE», «SUBTOTAL»— se escriben
+    // aquí: cada empresa los llama a su manera.
+    if (S.rotulos[b.tipo]) {
+      if (!b.textos) b.textos = rot(b);
+      Object.keys(S.rotulos[b.tipo]).forEach(function (k) {
+        var def = S.rotulos[b.tipo][k];
+        var i = entrada('text', b.textos[k] !== undefined ? b.textos[k] : def[1],
+          function (v) { b.textos[k] = v; }, { maxlength: 40 });
+        if (b.tipo === 'firmas') i.placeholder = k === 'izq' ? S.firmaIzq : S.firmaDer;
+        props.appendChild(campo(def[0], i));
+      });
     }
 
     var rejilla = document.createElement('div');

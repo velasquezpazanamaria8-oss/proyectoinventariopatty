@@ -43,6 +43,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 Vista::render('cotizaciones/diseno', [
     'cfg'     => CotizacionConfig::actual(),
-    'empresa' => Empresa::actual(),
+    'empresa' => Empresa::ficha(),
     'campos'  => CotizacionConfig::CAMPOS,
 ], 'Diseño de cotización');

@@ -40,7 +40,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 // Los bloques se dibujan con datos de muestra: el lienzo tiene que enseñar
 // texto de verdad para poder juzgar si algo cabe o se sale.
 $muestra = CotizacionDiseno::ejemplo();
-$empresa = Empresa::actual();
+$empresa = Empresa::ficha();
 
 $valores = [];
 foreach (CotizacionDiseno::claves() as $clave) {

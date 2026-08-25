@@ -420,19 +420,19 @@ class CotizacionPdf
                 break;
 
             case 'cliente':
-                $this->fichaCliente($b['x'], $y, $b['w'], $b['color']);
+                $this->fichaCliente($b, $y);
                 break;
 
             case 'totales':
-                $this->bloqueTotales($b['x'], $y, $b['w'], $b['color']);
+                $this->bloqueTotales($b, $y);
                 break;
 
             case 'firmas':
-                $this->bloqueFirmas($b['x'], $y, $b['w'], $b['color']);
+                $this->bloqueFirmas($b, $y);
                 break;
 
             case 'parrafo':
-                $this->bloqueParrafo($b['clave'], $b['x'], $y, $b['w'], $b['tam'], $b['color']);
+                $this->bloqueParrafo($b, $y);
                 break;
         }
     }
@@ -449,43 +449,53 @@ class CotizacionPdf
         }
     }
 
-    private function fichaCliente(float $x, float $yTop, float $ancho, string $color): void
+    private function fichaCliente(array $b, float $yTop): void
     {
         $p = $this->pdf;
+        $x = $b['x'];
+        $ancho = $b['w'];
+        $color = $b['color'];
+        $r = $b['textos'];
 
         $p->caja($x, $yTop, $ancho, 15, '#F1F5F9');
         $p->marco($x, $yTop, $ancho, 62, self::LINEA);
-        $p->escribir('CLIENTE', $x, $yTop - 11, $ancho, 'izq', true, 8.5, $color);
+        if ($r['rotulo'] !== '') {
+            $p->escribir($r['rotulo'], $x, $yTop - 11, $ancho, 'izq', true, 8.5, $color);
+        }
 
         // La empresa y la dirección ocupan la fila entera: son las que se cortan
         // si se les da media. El RUC y el correo sí caben a dos columnas.
         $y = $yTop - 26;
-        foreach (['Empresa' => $this->cot['cliente_nombre'],
-                  'Dirección' => $this->cot['cliente_direccion'] ?: '-'] as $et => $valor) {
-            $p->escribir($et . ':', $x + 6, $y, 60, 'izq', false, 7.5, self::GRIS);
+        foreach ([[$r['empresa'], $this->cot['cliente_nombre']],
+                  [$r['direccion'], $this->cot['cliente_direccion'] ?: '-']] as [$et, $valor]) {
+            $p->escribir($et !== '' ? $et . ':' : '', $x + 6, $y, 60, 'izq', false, 7.5, self::GRIS);
             $p->escribir((string) $valor, $x + 58, $y, $ancho - 64, 'izq', false, 8.5, self::TEXTO);
             $y -= 13;
         }
         $col = 0;
-        foreach (['RUC' => $this->cot['cliente_ruc'] ?: '-',
-                  'E-mail' => $this->cot['cliente_email'] ?: '-'] as $et => $valor) {
+        foreach ([[$r['ruc'], $this->cot['cliente_ruc'] ?: '-'],
+                  [$r['email'], $this->cot['cliente_email'] ?: '-']] as [$et, $valor]) {
             $xc = $x + 6 + $col * ($ancho / 2);
-            $p->escribir($et . ':', $xc, $y, 60, 'izq', false, 7.5, self::GRIS);
+            $p->escribir($et !== '' ? $et . ':' : '', $xc, $y, 60, 'izq', false, 7.5, self::GRIS);
             $p->escribir((string) $valor, $xc + 52, $y, $ancho / 2 - 60, 'izq', false, 8.5, self::TEXTO);
             $col++;
         }
     }
 
-    private function bloqueTotales(float $x, float $yTop, float $ancho, string $color): void
+    private function bloqueTotales(array $b, float $yTop): void
     {
         $p = $this->pdf;
+        $x = $b['x'];
+        $ancho = $b['w'];
+        $color = $b['color'];
+        $r = $b['textos'];
         $simbolo  = $this->emp['simbolo'] ?? 'S/';
         $etiqueta = min(90, $ancho * 0.5);
         $y = $yTop;
 
-        foreach ([['SUBTOTAL', $this->cot['subtotal'], false],
-                  ['IGV (18%)', $this->cot['igv'], false],
-                  ['TOTAL', $this->cot['total'], true]] as [$et, $val, $fuerte]) {
+        foreach ([[$r['subtotal'], $this->cot['subtotal'], false],
+                  [$r['igv'], $this->cot['igv'], false],
+                  [$r['total'], $this->cot['total'], true]] as [$et, $val, $fuerte]) {
             $importe = $simbolo . ' ' . Vista::num($val, 2);
             if ($fuerte) {
                 $p->caja($x, $y, $ancho, 18, $color);
@@ -500,20 +510,33 @@ class CotizacionPdf
         }
     }
 
-    private function bloqueFirmas(float $x, float $yTop, float $ancho, string $color): void
+    private function bloqueFirmas(array $b, float $yTop): void
     {
         $p = $this->pdf;
+        $x = $b['x'];
+        $ancho = $b['w'];
+        $color = $b['color'];
         $anchoFirma = $ancho * 0.38;
-        foreach ([[$x, $this->cfg['firma_izq'] ?: $this->emp['razon_social']],
-                  [$x + $ancho - $anchoFirma, $this->cfg['firma_der'] ?: 'CLIENTE']] as [$xf, $nombre]) {
+
+        // Si en el lienzo no se escribió nada, mandan los nombres de las
+        // opciones: son los mismos que usa el modo simple.
+        $izq = $b['textos']['izq'] ?: ($this->cfg['firma_izq'] ?: $this->emp['razon_social']);
+        $der = $b['textos']['der'] ?: ($this->cfg['firma_der'] ?: 'CLIENTE');
+
+        foreach ([[$x, $izq], [$x + $ancho - $anchoFirma, $der]] as [$xf, $nombre]) {
             $p->linea($xf, $yTop, $anchoFirma, self::LINEA, 0.8);
             $p->escribir((string) $nombre, $xf, $yTop - 11, $anchoFirma, 'centro', false, 8, $color);
         }
     }
 
-    private function bloqueParrafo(string $clave, float $x, float $yTop, float $ancho,
-                                   float $tam, string $color): void
+    private function bloqueParrafo(array $b, float $yTop): void
     {
+        $clave = $b['clave'];
+        $x = $b['x'];
+        $ancho = $b['w'];
+        $tam = $b['tam'];
+        $color = $b['color'];
+        $titulo = $b['textos']['titulo'];
         $texto = trim((string) ($this->cfg[$clave] ?? ''));
         if ($texto === '') {
             return;                            // sin condiciones no hay título suelto
@@ -521,8 +544,8 @@ class CotizacionPdf
         $p = $this->pdf;
         $y = $yTop;
 
-        if ($clave === 'condiciones') {
-            $p->escribir('TÉRMINOS Y CONDICIONES', $x, $y - $tam, $ancho, 'izq', true,
+        if ($titulo !== '') {
+            $p->escribir($titulo, $x, $y - $tam, $ancho, 'izq', true,
                 $tam + 1, $this->cfg['color']);
             $y -= $tam * 2;
         }

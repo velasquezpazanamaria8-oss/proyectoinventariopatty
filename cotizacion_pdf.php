@@ -9,7 +9,7 @@ if (!$cot) {
     Vista::redirigir('index.php');
 }
 
-$pdf = new CotizacionPdf($cot, CotizacionConfig::actual(), Empresa::actual());
+$pdf = new CotizacionPdf($cot, CotizacionConfig::actual(), Empresa::ficha());
 $bin = $pdf->generar();
 
 while (ob_get_level() > 0) { ob_end_clean(); }

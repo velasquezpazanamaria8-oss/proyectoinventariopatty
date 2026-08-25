@@ -29,6 +29,25 @@ class Empresa
         return Sesion::get('empresa');
     }
 
+    /**
+     * Ficha completa de la empresa activa, leída de la base.
+     *
+     * En la sesión sólo va lo que se necesita en cada pantalla —nombre, RUC,
+     * método de valorización—, y quien imprime un documento con membrete
+     * necesita también la dirección, el correo y el teléfono. Se lee una vez
+     * por petición.
+     */
+    private static ?array $ficha = null;
+
+    public static function ficha(): array
+    {
+        if (self::$ficha === null) {
+            self::$ficha = DB::uno('SELECT * FROM empresas WHERE id = :id',
+                [':id' => self::id()]) ?: (self::actual() ?? []);
+        }
+        return self::$ficha;
+    }
+
     public static function nombre(): string
     {
         return self::actual()['nombre_corto'] ?? '';

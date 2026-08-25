@@ -17,6 +17,7 @@ $estado = [
     'logo'         => !empty($cfg['logo_ruta'])
                         ? url('cotizacion_diseno.php?a=logo&v=' . urlencode((string) ($cfg['actualizado_en'] ?? '')))
                         : null,
+    'rotulos'      => CotizacionDiseno::ROTULOS,
     'previa'       => url('cotizacion_previa.php'),
 ];
 ?>
