@@ -89,10 +89,16 @@ class CotizacionConfig
         return array_values($out);
     }
 
-    public static function guardar(array $d, ?array $logo = null): void
+    /**
+     * Deja los datos del formulario listos para guardar.
+     *
+     * Vive aparte de guardar() porque la vista previa necesita exactamente
+     * esta normalización sin escribir nada: si el PDF de la previa se armara
+     * con los datos crudos del formulario, enseñaría un documento que no es
+     * el que se va a guardar.
+     */
+    public static function normalizar(array $d): array
     {
-        $empresaId = Empresa::id();
-
         $columnas = [];
         foreach ((array) ($d['col_campo'] ?? []) as $i => $campo) {
             if (empty($d['col_activa'][$i]) || !isset(self::CAMPOS[$campo])) {
@@ -105,7 +111,7 @@ class CotizacionConfig
             ];
         }
 
-        $datos = [
+        return [
             'logo_posicion'    => in_array($d['logo_posicion'] ?? '', ['IZQUIERDA','CENTRO','DERECHA'], true)
                                     ? $d['logo_posicion'] : 'IZQUIERDA',
             'color'            => preg_match('/^#[0-9A-Fa-f]{6}$/', $d['color'] ?? '') ? strtoupper($d['color']) : '#12395B',
@@ -123,8 +129,29 @@ class CotizacionConfig
             'firma_izq'        => mb_substr(trim((string) ($d['firma_izq'] ?? '')), 0, 80) ?: null,
             'firma_der'        => mb_substr(trim((string) ($d['firma_der'] ?? '')), 0, 80) ?: null,
             'incluye_igv'      => !empty($d['incluye_igv']) ? 1 : 0,
-            'actualizado_en'   => date('Y-m-d H:i:s'),
         ];
+    }
+
+    /**
+     * Config lista para armar un PDF con lo que hay en el formulario, sin
+     * tocar la base. El logo es el que ya está guardado: uno recién elegido
+     * todavía no ha subido al servidor.
+     */
+    public static function desdeFormulario(array $d): array
+    {
+        $cfg = self::normalizar($d);
+        $cfg['columnas']  = self::columnas($cfg['columnas']);
+        $cfg['logo_ruta'] = DB::valor(
+            'SELECT logo_ruta FROM cotizacion_config WHERE empresa_id = :e',
+            [':e' => Empresa::id()]);
+        return $cfg;
+    }
+
+    public static function guardar(array $d, ?array $logo = null): void
+    {
+        $empresaId = Empresa::id();
+
+        $datos = self::normalizar($d) + ['actualizado_en' => date('Y-m-d H:i:s')];
 
         if ($logo !== null) {
             $datos['logo_ruta'] = self::guardarLogo($logo);

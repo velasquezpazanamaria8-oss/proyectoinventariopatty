@@ -7,7 +7,9 @@ foreach (array_keys($campos) as $c) {
 }
 ?>
 
-<form method="post" enctype="multipart/form-data">
+<div class="disenador">
+<form method="post" enctype="multipart/form-data" id="formDiseno" class="disenador-campos"
+      data-previa="<?= url('cotizacion_previa.php') ?>#zoom=page-width&toolbar=0&navpanes=0">
   <?= Csrf::campo() ?>
 
   <div class="tarjeta">
@@ -195,6 +197,23 @@ foreach (array_keys($campos) as $c) {
   </div>
 </form>
 
+  <aside class="disenador-previa">
+    <div class="tarjeta previa-caja">
+      <div class="tarjeta-cab">
+        <h2>Vista previa</h2>
+        <span class="previa-estado" id="previaEstado">al día</span>
+      </div>
+      <iframe name="marcoPrevia" id="marcoPrevia" title="Vista previa de la cotización"></iframe>
+      <p class="previa-nota">
+        Es una cotización de ejemplo con los datos de <?= e($empresa['razon_social']) ?>.
+        Cambie cualquier cosa a la izquierda y aquí se vuelve a dibujar el PDF de verdad,
+        el mismo que se le manda al cliente. Un logo recién elegido sólo aparece
+        después de guardar.
+      </p>
+    </div>
+  </aside>
+</div>
+
 <script>
 (function () {
   // Reordenar columnas: el orden de las filas es el orden en el PDF.
@@ -219,6 +238,66 @@ foreach (array_keys($campos) as $c) {
         inp.name = inp.name.replace(/\[\d+\]/, '[' + i + ']');
       });
     });
+    document.dispatchEvent(new Event('diseno:cambio'));
   }
+})();
+
+(function () {
+  // Vista previa: se manda el formulario TAL COMO ESTÁ a un generador que no
+  // guarda nada, y el PDF que vuelve es el mismo motor que emite el definitivo.
+  // Así lo que se ve al diseñar no es una imitación en HTML que con el tiempo
+  // se separaría del documento real.
+  var form   = document.getElementById('formDiseno');
+  var marco  = document.getElementById('marcoPrevia');
+  var estado = document.getElementById('previaEstado');
+  if (!form || !marco) return;
+
+  var espera = null;
+
+  function dibujar() {
+    estado.textContent = 'dibujando…';
+    estado.className = 'previa-estado trabajando';
+
+    // Un formulario aparte: el de verdad no se toca, y así el archivo del logo
+    // —que aún no está en el servidor— se queda fuera sin estorbar.
+    var envio = document.createElement('form');
+    envio.method = 'post';
+    envio.action = form.dataset.previa;
+    envio.target = 'marcoPrevia';
+    envio.style.display = 'none';
+
+    new FormData(form).forEach(function (valor, nombre) {
+      if (valor instanceof File) return;
+      var campo = document.createElement('input');
+      campo.type = 'hidden';
+      campo.name = nombre;
+      campo.value = valor;
+      envio.appendChild(campo);
+    });
+
+    document.body.appendChild(envio);
+    envio.submit();
+    document.body.removeChild(envio);
+  }
+
+  marco.addEventListener('load', function () {
+    estado.textContent = 'al día';
+    estado.className = 'previa-estado';
+  });
+
+  // Con retardo: escribir un título letra a letra no puede disparar un PDF por
+  // pulsación.
+  function programar() {
+    clearTimeout(espera);
+    estado.textContent = 'pendiente…';
+    estado.className = 'previa-estado trabajando';
+    espera = setTimeout(dibujar, 500);
+  }
+
+  form.addEventListener('input', programar);
+  form.addEventListener('change', programar);
+  document.addEventListener('diseno:cambio', programar);
+
+  dibujar();
 })();
 </script>

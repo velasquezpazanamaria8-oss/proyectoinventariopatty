@@ -217,3 +217,42 @@ table.tabla tr.sin-stock td{color:var(--suave)}
 .portada-encabezado{display:flex;justify-content:space-between;align-items:flex-start;
   gap:16px;flex-wrap:wrap;margin-bottom:22px}
 .portada-encabezado .portada-sub{margin-bottom:0}
+
+/* ---------- Diseñador de cotización: campos a un lado, PDF al otro -------- */
+/* Se ven juntos a propósito: tocar una casilla y tener que ir a buscar el PDF
+   en otra pantalla es lo que hacía imposible ajustar el diseño. */
+.disenador {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(360px, 42%);
+  gap: 18px;
+  align-items: start;
+}
+.disenador-campos { min-width: 0; }
+
+.disenador-previa { position: sticky; top: 14px; }
+.previa-caja { display: flex; flex-direction: column; }
+.previa-caja iframe {
+  width: 100%;
+  height: calc(100vh - 210px);
+  min-height: 420px;
+  border: 0;
+  border-top: 1px solid var(--linea);
+  background: #525659;          /* el gris del visor, para que no parpadee blanco */
+}
+.previa-nota {
+  margin: 0;
+  padding: 10px 14px;
+  font-size: 12px;
+  color: var(--suave);
+  border-top: 1px solid var(--linea);
+}
+.previa-estado { font-size: 12px; color: var(--suave); }
+.previa-estado.trabajando { color: #B45309; }
+
+/* En pantallas estrechas el PDF va debajo: partir 1200 px en dos columnas deja
+   ambas ilegibles. */
+@media (max-width: 1200px) {
+  .disenador { grid-template-columns: 1fr; }
+  .disenador-previa { position: static; }
+  .previa-caja iframe { height: 70vh; }
+}
