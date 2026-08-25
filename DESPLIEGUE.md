@@ -51,8 +51,10 @@ Es el único archivo que hay que editar. Cuatro cambios:
 
 ```php
 'app' => [
-    'base_url' => '',          // vacío si está en la raíz del dominio
-                               // o '/kardex' si está en una subcarpeta
+    // null = la deduce sola comparando la carpeta del proyecto con la raíz
+    // del servidor. Funciona tanto en la raíz del dominio como en subcarpeta.
+    // Sólo fíjela a mano si su hosting hace algo raro con DOCUMENT_ROOT.
+    'base_url' => null,
     'debug'    => false,       // IMPORTANTE: en true muestra rutas y errores internos
 ],
 'db' => [

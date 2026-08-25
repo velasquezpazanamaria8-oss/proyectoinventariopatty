@@ -139,9 +139,23 @@
                 <a class="btn btn-sm" href="<?= url('empresas.php?a=cambiar&id=' . $em['id']) ?>">Entrar</a>
               <?php endif; ?>
               <a class="btn btn-sm btn-gris" href="<?= url('empresas.php?id=' . $em['id']) ?>">Editar</a>
-              <?php if (!$esActual && (int) $em['estado'] === 1): ?>
-                <a class="btn btn-sm btn-rojo" href="<?= url('empresas.php?a=desactivar&id=' . $em['id']) ?>"
-                   data-confirmar="¿Desactivar <?= e($em['razon_social']) ?>? Sus datos se conservan.">Desactivar</a>
+
+              <?php if (!$esActual): $c = $contenido[(int) $em['id']]; ?>
+                <?php if ((int) $em['estado'] === 1): ?>
+                  <button type="button" class="btn btn-sm btn-gris accion-empresa"
+                          data-op="desactivar" data-id="<?= (int) $em['id'] ?>"
+                          data-confirmar="¿Desactivar <?= e($em['razon_social']) ?>? Deja de aparecer, pero conserva todos sus datos.">Desactivar</button>
+                <?php else: ?>
+                  <button type="button" class="btn btn-sm accion-empresa"
+                          data-op="reactivar" data-id="<?= (int) $em['id'] ?>"
+                          data-confirmar="¿Volver a activar <?= e($em['razon_social']) ?>?">Reactivar</button>
+                <?php endif; ?>
+
+                <button type="button" class="btn btn-sm btn-rojo abrir-borrado"
+                        data-id="<?= (int) $em['id'] ?>"
+                        data-ruc="<?= e($em['ruc']) ?>"
+                        data-nombre="<?= e($em['razon_social']) ?>"
+                        data-resumen="<?= e(json_encode($c)) ?>">Eliminar</button>
               <?php endif; ?>
             </div>
           </td>
@@ -151,6 +165,144 @@
     </table>
   </div>
 </div>
+
+<?php /* Formulario único para desactivar, reactivar y eliminar: las tres son
+         operaciones que cambian el estado y viajan por POST con su token. */ ?>
+<form method="post" id="formAccion" style="display:none">
+  <input type="hidden" name="_csrf" value="<?= e(Csrf::token()) ?>">
+  <input type="hidden" name="op" id="accOp">
+  <input type="hidden" name="id" id="accId">
+  <input type="hidden" name="ruc_confirmacion" id="accRuc">
+</form>
+
+<!-- Confirmación de borrado definitivo -->
+<div class="modal-fondo" id="modalBorrado" style="display:none">
+  <div class="modal-caja" style="max-width:560px">
+    <div class="modal-cab">
+      <h2>Eliminar empresa definitivamente</h2>
+      <button type="button" class="modal-cerrar" id="borCerrar" aria-label="Cerrar">&times;</button>
+    </div>
+
+    <div class="tarjeta-cuerpo">
+      <p style="margin-top:0">Va a eliminar <strong id="borNombre"></strong>.</p>
+
+      <div class="alerta alerta-error" style="font-size:13px">
+        <strong>Esto no se puede deshacer.</strong> Se borrará también todo lo que contiene:
+        <ul id="borLista" style="margin:8px 0 0 18px;padding:0"></ul>
+      </div>
+
+      <p style="color:var(--suave);font-size:12.5px">
+        Si la empresa llegó a operar, lo prudente es <strong>desactivarla</strong>: desaparece de la
+        lista pero conserva su kardex, que es lo que respalda las declaraciones ya presentadas.
+      </p>
+
+      <div class="campo">
+        <label>Para confirmar, escriba el RUC <strong id="borRuc"></strong></label>
+        <input type="text" id="borTecleado" autocomplete="off" placeholder="RUC de la empresa">
+      </div>
+    </div>
+
+    <div class="modal-pie">
+      <span class="modal-conteo" id="borAviso"></span>
+      <div class="acciones">
+        <button type="button" class="btn btn-gris" id="borCancelar">Cancelar</button>
+        <button type="button" class="btn btn-rojo" id="borConfirmar" disabled>Eliminar para siempre</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  var form = document.getElementById('formAccion');
+
+  function enviar(op, id, ruc) {
+    document.getElementById('accOp').value  = op;
+    document.getElementById('accId').value  = id;
+    document.getElementById('accRuc').value = ruc || '';
+    form.submit();
+  }
+
+  // Desactivar y reactivar: basta con preguntar.
+  document.querySelectorAll('.accion-empresa').forEach(function (b) {
+    b.addEventListener('click', function () {
+      if (confirm(b.dataset.confirmar)) enviar(b.dataset.op, b.dataset.id);
+    });
+  });
+
+  // Eliminar: hay que teclear el RUC.
+  var modal    = document.getElementById('modalBorrado');
+  var tecleado = document.getElementById('borTecleado');
+  var confirmar= document.getElementById('borConfirmar');
+  var actual   = null;
+
+  var etiquetas = {
+    productos: 'producto(s) del catálogo',
+    movimientos: 'movimiento(s) de kardex',
+    entradas: 'entrada(s) registradas',
+    salidas: 'salida(s) registradas',
+    comprobantes: 'comprobante(s) de SUNAT',
+    archivos: 'archivo(s) descargados (XML, PDF, CDR)',
+    usuarios: 'usuario(s) con acceso'
+  };
+
+  function cerrar() {
+    modal.style.display = 'none';
+    tecleado.value = '';
+    confirmar.disabled = true;
+    actual = null;
+  }
+
+  document.querySelectorAll('.abrir-borrado').forEach(function (b) {
+    b.addEventListener('click', function () {
+      actual = b.dataset;
+      document.getElementById('borNombre').textContent = b.dataset.nombre;
+      document.getElementById('borRuc').textContent    = b.dataset.ruc;
+
+      var datos = JSON.parse(b.dataset.resumen);
+      var lista = document.getElementById('borLista');
+      lista.innerHTML = '';
+      var vacia = true;
+      Object.keys(etiquetas).forEach(function (k) {
+        if (!datos[k]) return;                    // no se listan los ceros
+        vacia = false;
+        var li = document.createElement('li');
+        li.textContent = datos[k].toLocaleString('es-PE') + ' ' + etiquetas[k];
+        lista.appendChild(li);
+      });
+      if (vacia) {
+        var li = document.createElement('li');
+        li.textContent = 'No tiene datos cargados: sólo se borrarán sus catálogos base.';
+        lista.appendChild(li);
+      }
+
+      modal.style.display = 'flex';
+      tecleado.focus();
+    });
+  });
+
+  tecleado.addEventListener('input', function () {
+    confirmar.disabled = !actual || this.value.trim() !== actual.ruc;
+  });
+  tecleado.addEventListener('keydown', function (e) {
+    if (e.key === 'Enter' && !confirmar.disabled) confirmar.click();
+  });
+
+  confirmar.addEventListener('click', function () {
+    if (!actual) return;
+    document.getElementById('borAviso').textContent = 'Eliminando...';
+    confirmar.disabled = true;
+    enviar('eliminar', actual.id, tecleado.value.trim());
+  });
+
+  document.getElementById('borCerrar').addEventListener('click', cerrar);
+  document.getElementById('borCancelar').addEventListener('click', cerrar);
+  modal.addEventListener('mousedown', function (e) { if (e.target === modal) cerrar(); });
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape' && modal.style.display !== 'none') cerrar();
+  });
+})();
+</script>
 
 <script>
 (function () {

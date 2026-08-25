@@ -1,0 +1,31 @@
+# Clave maestra del cifrado de secretos (Clave SOL, client_secret).
+# Si esto llega al repositorio, el cifrado de la base deja de servir de nada:
+# cualquiera con el volcado y este archivo descifra las credenciales.
+storage/clave_maestra.php
+
+# Archivos subidos y trabajo temporal
+storage/importaciones/*
+!storage/importaciones/.gitkeep
+storage/logs/*
+!storage/logs/.gitkeep
+
+# Comprobantes bajados de SUNAT: son documentos tributarios reales de los
+# clientes (RUC, razón social, importes). Nunca al repositorio.
+storage/cpe/*
+!storage/cpe/.gitkeep
+
+# Logos subidos desde la pantalla de diseño: son datos de cada instalación,
+# no del código. Se vuelven a subir donde haga falta.
+storage/logos/*
+!storage/logos/.gitkeep
+
+# Volcado de datos de demostración (se regenera con database/exportar_demo.php)
+database/kardex_demo.sql
+
+# Configuración con credenciales reales (clave del cron, base de datos).
+# Se sube sólo config.produccion.ejemplo.php, con marcadores.
+config.php
+
+# Capturas y basura de herramientas
+*.png
+.playwright-mcp/

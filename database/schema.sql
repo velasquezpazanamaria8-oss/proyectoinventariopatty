@@ -410,6 +410,178 @@ CREATE TABLE inventario_detalle (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ------------------------------------------------------------
+-- Líneas de producto de cada comprobante descargado
+--
+-- Lo que el SIRE no da y el inventario necesita. `producto_id` queda vacío
+-- hasta que la conciliación lo empareja con un producto del catálogo.
+-- ------------------------------------------------------------
+DROP TABLE IF EXISTS sunat_cpe_items;
+CREATE TABLE sunat_cpe_items (
+  id             BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  empresa_id     INT UNSIGNED NOT NULL,
+  cpe_id         BIGINT UNSIGNED NOT NULL,
+  linea          SMALLINT UNSIGNED NOT NULL,
+  codigo_sunat   VARCHAR(60)  NULL,          -- código del emisor, si lo trae
+  descripcion    VARCHAR(500) NOT NULL,
+  cantidad       DECIMAL(14,4) NOT NULL,
+  unidad_codigo  VARCHAR(10)  NULL,          -- NIU, KGM, BJ...
+  unidad_nombre  VARCHAR(60)  NULL,
+  valor_unitario DECIMAL(14,6) NOT NULL DEFAULT 0,   -- SIN IGV
+  importe        DECIMAL(14,4) NOT NULL DEFAULT 0,
+  producto_id    INT UNSIGNED NULL,          -- lo llena la conciliación
+  CONSTRAINT fk_cpei_emp  FOREIGN KEY (empresa_id) REFERENCES empresas(id) ON DELETE CASCADE,
+  CONSTRAINT fk_cpei_cpe  FOREIGN KEY (cpe_id)     REFERENCES sunat_comprobantes(id) ON DELETE CASCADE,
+  CONSTRAINT fk_cpei_prod FOREIGN KEY (producto_id) REFERENCES productos(id),
+  INDEX idx_cpei_cpe (cpe_id),
+  INDEX idx_cpei_codigo (empresa_id, codigo_sunat),
+  INDEX idx_cpei_producto (producto_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+
+-- ------------------------------------------------------------
+-- Equivalencias entre lo que dice SUNAT y el catálogo propio
+--
+-- La clave es el código del emisor (o la descripción si no lo trae) JUNTO CON
+-- el RUC de quien lo emitió: el código 8863 del proveedor A no tiene nada que
+-- ver con el 8863 del proveedor B. En las ventas el emisor es la propia
+-- empresa, así que ahí el código ya es el del catálogo.
+--
+-- Se aprende una vez y se reutiliza en las importaciones siguientes.
+-- ------------------------------------------------------------
+DROP TABLE IF EXISTS sunat_producto_mapa;
+CREATE TABLE sunat_producto_mapa (
+  id          BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  empresa_id  INT UNSIGNED NOT NULL,
+  origen_ruc  VARCHAR(15)  NOT NULL,        -- RUC del emisor del código
+  clave       VARCHAR(255) NOT NULL,        -- código del emisor, o la descripción
+  producto_id INT UNSIGNED NULL,            -- NULL + ignorar=1 -> no es inventario
+  ignorar     TINYINT(1)   NOT NULL DEFAULT 0,
+  descripcion VARCHAR(500) NULL,            -- como la vio SUNAT, para la pantalla
+  creado_en   DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT fk_map_emp  FOREIGN KEY (empresa_id)  REFERENCES empresas(id) ON DELETE CASCADE,
+  CONSTRAINT fk_map_prod FOREIGN KEY (producto_id) REFERENCES productos(id) ON DELETE CASCADE,
+  UNIQUE KEY uq_map (empresa_id, origen_ruc, clave)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Stock inicial capturado antes de reproducir la historia (lo usa la fase 4).
+DROP TABLE IF EXISTS sunat_stock_inicial;
+CREATE TABLE sunat_stock_inicial (
+  id          BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  empresa_id  INT UNSIGNED NOT NULL,
+  producto_id INT UNSIGNED NOT NULL,
+  almacen_id  INT UNSIGNED NOT NULL,
+  cantidad    DECIMAL(14,4) NOT NULL DEFAULT 0,
+  costo_unitario DECIMAL(14,4) NOT NULL DEFAULT 0,
+  aplicado_en DATETIME NULL,
+  CONSTRAINT fk_si_emp  FOREIGN KEY (empresa_id)  REFERENCES empresas(id) ON DELETE CASCADE,
+  CONSTRAINT fk_si_prod FOREIGN KEY (producto_id) REFERENCES productos(id) ON DELETE CASCADE,
+  CONSTRAINT fk_si_alm  FOREIGN KEY (almacen_id)  REFERENCES almacenes(id),
+  UNIQUE KEY uq_si (empresa_id, producto_id, almacen_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+
+-- ------------------------------------------------------------
+-- Ejecuciones automáticas (cron)
+--
+-- Sin esto, cuando algo no aparece nadie sabe si el cron corrió, falló o
+-- nunca estuvo configurado. También sirve de cerrojo: SUNAT rechaza dos
+-- sesiones simultáneas del mismo RUC.
+-- ------------------------------------------------------------
+DROP TABLE IF EXISTS sunat_tareas;
+CREATE TABLE sunat_tareas (
+  id         BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  empresa_id INT UNSIGNED NOT NULL,
+  origen     ENUM('cron','manual') NOT NULL DEFAULT 'cron',
+  estado     ENUM('CORRIENDO','OK','ERROR') NOT NULL DEFAULT 'CORRIENDO',
+  periodo    CHAR(6)      NULL,
+  resumen    VARCHAR(500) NULL,
+  detalle    TEXT         NULL,
+  iniciado_en   DATETIME  NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  terminado_en  DATETIME  NULL,
+  CONSTRAINT fk_tar_emp FOREIGN KEY (empresa_id) REFERENCES empresas(id) ON DELETE CASCADE,
+  INDEX idx_tar_emp (empresa_id, iniciado_en)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ------------------------------------------------------------
+-- Credenciales SUNAT por empresa
+--
+-- La Clave SOL y el client_secret se guardan CIFRADOS (AES-256-GCM, ver
+-- app/Crypto.php); la clave maestra vive fuera de la base. El RUC, el usuario
+-- SOL y el client_id no son secretos y se guardan en claro para poder
+-- mostrarlos y diagnosticar.
+-- ------------------------------------------------------------
+DROP TABLE IF EXISTS credenciales_sunat;
+CREATE TABLE credenciales_sunat (
+  id             INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  empresa_id     INT UNSIGNED NOT NULL,
+  ruc            VARCHAR(11)  NOT NULL,
+  usuario_sol    VARCHAR(60)  NOT NULL,
+  clave_sol      VARCHAR(255) NOT NULL,          -- cifrada
+  client_id      VARCHAR(120) NULL,
+  client_secret  VARCHAR(255) NULL,              -- cifrado
+  estado         ENUM('SIN_PROBAR','OK','ERROR') NOT NULL DEFAULT 'SIN_PROBAR',
+  mensaje        VARCHAR(400) NULL,              -- resultado de la última prueba
+  recursos       TEXT         NULL,              -- recursos del token, para diagnóstico
+  verificado_en  DATETIME     NULL,
+  creado_en      DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  actualizado_en DATETIME     NULL ON UPDATE CURRENT_TIMESTAMP,
+  CONSTRAINT fk_cred_emp FOREIGN KEY (empresa_id) REFERENCES empresas(id) ON DELETE CASCADE,
+  UNIQUE KEY uq_cred_empresa (empresa_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ------------------------------------------------------------
+-- Comprobantes declarados en el SIRE
+--
+-- Es el "qué existe" según SUNAT: una fila por comprobante del período, con
+-- datos de CABECERA (no trae el detalle de productos; eso llega al bajar el
+-- comprobante). Se guarda para poder consultarlo sin volver a llamar a SUNAT
+-- y para cruzarlo después con lo que ya se descargó.
+-- ------------------------------------------------------------
+DROP TABLE IF EXISTS sunat_comprobantes;
+CREATE TABLE sunat_comprobantes (
+  id             BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  empresa_id     INT UNSIGNED NOT NULL,
+  periodo        CHAR(6)      NOT NULL,          -- YYYYMM
+  tipo           ENUM('ventas','compras') NOT NULL,
+  cod_tipo_cdp   VARCHAR(4)   NULL,              -- 01 factura, 07 NC, 08 ND
+  serie          VARCHAR(20)  NULL,
+  numero         VARCHAR(30)  NULL,
+  fecha_emision  DATE         NULL,
+  ruc_contraparte    VARCHAR(15)  NULL,          -- cliente o proveedor
+  nombre_contraparte VARCHAR(255) NULL,
+  base_gravada   DECIMAL(14,2) NOT NULL DEFAULT 0,
+  igv            DECIMAL(14,2) NOT NULL DEFAULT 0,
+  total          DECIMAL(14,2) NOT NULL DEFAULT 0,
+  moneda         VARCHAR(5)   NULL,
+  estado_sunat   VARCHAR(40)  NULL,
+  payload        MEDIUMTEXT   NULL,              -- respuesta cruda, por si falta un campo
+  sincronizado_en DATETIME    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  -- Estado de la descarga del comprobante (fase 2)
+  descarga_estado ENUM('PENDIENTE','OK','ERROR') NULL,
+  descarga_msg   VARCHAR(250) NULL,
+  descarga_intentos TINYINT UNSIGNED NOT NULL DEFAULT 0,
+  items_cant     SMALLINT UNSIGNED NULL,
+  xml_path       VARCHAR(255) NULL,
+  pdf_path       VARCHAR(255) NULL,
+  cdr_path       VARCHAR(255) NULL,
+  descargado_en  DATETIME     NULL,
+  -- Fase 4: movimiento de inventario generado a partir de este comprobante
+  mov_tabla      ENUM('entradas','salidas') NULL,
+  mov_id         INT UNSIGNED NULL,
+  mov_msg        VARCHAR(300) NULL,
+  generado_en    DATETIME     NULL,
+
+  CONSTRAINT fk_sc_emp FOREIGN KEY (empresa_id) REFERENCES empresas(id) ON DELETE CASCADE,
+  -- La clave natural necesita el TIPO de documento y el RUC del emisor:
+  -- una factura y su nota de crédito comparten serie-número, y dos proveedores
+  -- distintos pueden emitir la misma serie-número. Sin ambos, se pierden
+  -- comprobantes en silencio (visto en vivo: 2 de 34 en un período real).
+  UNIQUE KEY uq_sc (empresa_id, periodo, tipo, cod_tipo_cdp, serie, numero, ruc_contraparte),
+  INDEX idx_sc_periodo (empresa_id, periodo, tipo),
+  INDEX idx_sc_fecha (empresa_id, fecha_emision)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ------------------------------------------------------------
 -- Auditoría  (RF-15)
 -- empresa_id puede ser NULL en eventos de sistema (login).
 -- ------------------------------------------------------------

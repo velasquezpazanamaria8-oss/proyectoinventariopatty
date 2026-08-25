@@ -210,4 +210,145 @@ class Empresa
         DB::actualizar('empresas', ['estado' => 0], 'id = :id', [':id' => $id]);
         Auditoria::registrar('DESACTIVAR', 'empresas', $id);
     }
+
+    public static function activarDeNuevo(int $id): void
+    {
+        DB::actualizar('empresas', ['estado' => 1], 'id = :id', [':id' => $id]);
+        Auditoria::registrar('REACTIVAR', 'empresas', $id);
+    }
+
+    /**
+     * Qué se destruiría al eliminar la empresa.
+     *
+     * Se enseña antes de confirmar: nadie debería borrar a ciegas, y leer
+     * "1.284 movimientos de kardex" hace pensar dos veces mejor que cualquier
+     * advertencia genérica.
+     */
+    public static function contenido(int $id): array
+    {
+        $contar = fn(string $sql): int => (int) DB::valor($sql, [':e' => $id]);
+
+        return [
+            'productos'    => $contar('SELECT COUNT(*) FROM productos WHERE empresa_id = :e'),
+            'movimientos'  => $contar('SELECT COUNT(*) FROM kardex WHERE empresa_id = :e'),
+            'entradas'     => $contar('SELECT COUNT(*) FROM entradas WHERE empresa_id = :e'),
+            'salidas'      => $contar('SELECT COUNT(*) FROM salidas WHERE empresa_id = :e'),
+            'comprobantes' => $contar('SELECT COUNT(*) FROM sunat_comprobantes WHERE empresa_id = :e'),
+            'usuarios'     => $contar('SELECT COUNT(*) FROM usuario_empresa WHERE empresa_id = :e'),
+            'archivos'     => self::archivosDe($id),
+        ];
+    }
+
+    /** Comprobantes descargados en disco (storage/cpe/{empresa}/...). */
+    private static function archivosDe(int $id): int
+    {
+        $dir = BASE_PATH . '/storage/cpe/' . $id;
+        if (!is_dir($dir)) {
+            return 0;
+        }
+        $n = 0;
+        foreach (new RecursiveIteratorIterator(new RecursiveDirectoryIterator(
+                     $dir, FilesystemIterator::SKIP_DOTS)) as $f) {
+            if ($f->isFile()) $n++;
+        }
+        return $n;
+    }
+
+    /**
+     * Elimina la empresa y TODO lo suyo. No tiene vuelta atrás.
+     *
+     * Existe para deshacerse de empresas de prueba o creadas por error. Para una
+     * empresa que operó de verdad lo correcto es desactivarla: su kardex
+     * respalda declaraciones ya presentadas, y borrarlo deja a la contabilidad
+     * sin sustento.
+     *
+     * Se pide teclear el RUC porque un botón —por mucho "¿está seguro?" que
+     * muestre— se pulsa por inercia; escribir el RUC obliga a mirar cuál es.
+     *
+     * El orden de borrado importa: las tablas del inventario están en NO ACTION,
+     * así que hay que vaciar los hijos antes que los padres o la base lo rechaza.
+     */
+    public static function eliminar(int $id, string $rucTecleado): void
+    {
+        $empresa = self::buscar($id);
+        if (!$empresa) {
+            throw new RuntimeException('Esa empresa no existe.');
+        }
+        if (self::hayActiva() && $id === self::id()) {
+            throw new RuntimeException('No puede eliminar la empresa en la que está trabajando. '
+                . 'Cambie antes a otra desde el selector de arriba.');
+        }
+        if ((int) DB::valor('SELECT COUNT(*) FROM empresas') <= 1) {
+            throw new RuntimeException('Es la única empresa del sistema: si la elimina no quedaría dónde trabajar.');
+        }
+        if (trim($rucTecleado) !== $empresa['ruc']) {
+            throw new RuntimeException('El RUC tecleado no coincide con el de la empresa. No se eliminó nada.');
+        }
+
+        // El detalle se guarda ANTES: después no habrá de dónde sacarlo. La
+        // auditoría no tiene clave foránea a empresas precisamente para que el
+        // rastro sobreviva al borrado.
+        Auditoria::registrar('ELIMINAR', 'empresas', $id, [
+            'ruc'          => $empresa['ruc'],
+            'razon_social' => $empresa['razon_social'],
+            'contenido'    => self::contenido($id),
+        ]);
+
+        DB::transaccion(function () use ($id) {
+            $p = [':e' => $id];
+
+            // Hijos que no llevan empresa_id: se alcanzan a través de su padre.
+            DB::query('DELETE kc FROM kardex_capa kc
+                         JOIN kardex k ON k.id = kc.kardex_id WHERE k.empresa_id = :e', $p);
+            DB::query('DELETE d FROM entrada_detalle d
+                         JOIN entradas e ON e.id = d.entrada_id WHERE e.empresa_id = :e', $p);
+            DB::query('DELETE d FROM salida_detalle d
+                         JOIN salidas s ON s.id = d.salida_id WHERE s.empresa_id = :e', $p);
+            DB::query('DELETE d FROM inventario_detalle d
+                         JOIN inventarios i ON i.id = d.inventario_id WHERE i.empresa_id = :e', $p);
+            DB::query('DELETE s FROM stock s
+                         JOIN productos pr ON pr.id = s.producto_id WHERE pr.empresa_id = :e', $p);
+
+            // Lo de SUNAT antes que los productos: sus líneas apuntan a ellos.
+            foreach (['sunat_cpe_items', 'sunat_comprobantes', 'sunat_stock_inicial',
+                      'sunat_producto_mapa', 'sunat_descargas_activas', 'sunat_tareas',
+                      'credenciales_sunat'] as $t) {
+                DB::query("DELETE FROM $t WHERE empresa_id = :e", $p);
+            }
+
+            // Movimientos, luego el catálogo, luego aquello de lo que depende.
+            foreach (['kardex', 'capas_costo', 'ajustes', 'entradas', 'salidas', 'inventarios',
+                      'productos', 'categorias', 'marcas', 'unidades', 'proveedores',
+                      'almacenes', 'usuario_empresa'] as $t) {
+                DB::query("DELETE FROM $t WHERE empresa_id = :e", $p);
+            }
+
+            DB::query('DELETE FROM empresas WHERE id = :e', $p);
+        });
+
+        // Los archivos se borran después de confirmar la transacción: si algo
+        // hubiera fallado en la base, haberlos borrado antes dejaría sin
+        // respaldo a comprobantes que seguirían registrados.
+        self::borrarArchivos($id);
+    }
+
+    /** Borra storage/cpe/{empresa} con todo lo que tenga dentro. */
+    private static function borrarArchivos(int $id): void
+    {
+        $raiz = realpath(BASE_PATH . '/storage/cpe');
+        $dir  = realpath(BASE_PATH . '/storage/cpe/' . $id);
+
+        // Comprobación de cordura: sólo se borra dentro de storage/cpe.
+        if (!$raiz || !$dir || !str_starts_with($dir, $raiz) || $dir === $raiz) {
+            return;
+        }
+
+        $it = new RecursiveIteratorIterator(
+            new RecursiveDirectoryIterator($dir, FilesystemIterator::SKIP_DOTS),
+            RecursiveIteratorIterator::CHILD_FIRST);
+        foreach ($it as $f) {
+            $f->isDir() ? @rmdir($f->getPathname()) : @unlink($f->getPathname());
+        }
+        @rmdir($dir);
+    }
 }

@@ -28,7 +28,8 @@ INSERT INTO permisos (clave, descripcion) VALUES
  ('kardex.ver','Consultar kardex'),
  ('inventario.ver','Ver inventario'),('inventario.gestionar','Inventario físico y conciliación'),
  ('reportes.ver','Ver reportes'),('reportes.valorizado','Ver reportes valorizados'),
- ('auditoria.ver','Ver auditoría');
+ ('auditoria.ver','Ver auditoría'),
+ ('sunat.gestionar','Configurar la conexión con SUNAT');
 
 -- Superadmin: todos los permisos, incluido el de empresas
 INSERT INTO rol_permiso (rol_id, permiso_id) SELECT 1, id FROM permisos;

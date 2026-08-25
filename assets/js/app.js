@@ -265,4 +265,72 @@
     a.click();
     URL.revokeObjectURL(a.href);
   };
+
+  // --- Visor de comprobantes de SUNAT -------------------------------------
+  // Muestra el PDF descargado dentro de la propia pantalla, sin abrir pestañas
+  // ni perder lo que se estaba haciendo. Lo usan la pantalla de descargas y la
+  // de conciliación, por eso vive aquí y no en una vista.
+  var visor = null;
+
+  function crearVisor() {
+    visor = document.createElement('div');
+    visor.className = 'modal-fondo';
+    visor.style.display = 'none';
+    visor.style.zIndex = '200';   // por encima de cualquier otra ventana abierta
+    visor.innerHTML =
+      '<div class="modal-caja" style="max-width:1100px;height:92vh;max-height:92vh">' +
+        '<div class="modal-cab">' +
+          '<h2 id="visorTitulo">Comprobante</h2>' +
+          '<button type="button" class="modal-cerrar" aria-label="Cerrar">&times;</button>' +
+        '</div>' +
+        '<div class="modal-cuerpo" style="background:#525659;padding:0">' +
+          '<iframe id="visorMarco" title="Comprobante" ' +
+                  'style="width:100%;height:100%;border:0;display:block"></iframe>' +
+        '</div>' +
+        '<div class="modal-pie">' +
+          '<span class="modal-conteo" id="visorNota"></span>' +
+          '<div class="acciones">' +
+            '<a class="btn btn-sm btn-gris" id="visorNueva" target="_blank" rel="noopener">Abrir en pestaña</a>' +
+            '<a class="btn btn-sm btn-gris" id="visorBajar">Descargar PDF</a>' +
+            '<button type="button" class="btn btn-gris" id="visorCerrar">Cerrar</button>' +
+          '</div>' +
+        '</div>' +
+      '</div>';
+    document.body.appendChild(visor);
+
+    visor.querySelector('.modal-cerrar').addEventListener('click', cerrarVisor);
+    visor.querySelector('#visorCerrar').addEventListener('click', cerrarVisor);
+    visor.addEventListener('mousedown', function (e) { if (e.target === visor) cerrarVisor(); });
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape' && visor && visor.style.display !== 'none') cerrarVisor();
+    });
+  }
+
+  function cerrarVisor() {
+    if (!visor) return;
+    // Se vacía el iframe: si no, el PDF sigue cargado y consumiendo memoria.
+    visor.querySelector('#visorMarco').src = 'about:blank';
+    visor.style.display = 'none';
+  }
+
+  /**
+   * Abre el PDF del comprobante `id` en una ventana sobre la pantalla actual.
+   * `titulo` es lo que se muestra en la cabecera (serie-número, contraparte...).
+   */
+  window.verComprobante = function (id, titulo, nota) {
+    if (!visor) crearVisor();
+    var url = (window.BASE_URL || '') + 'cpe_archivo.php?t=pdf&id=' + encodeURIComponent(id);
+
+    visor.querySelector('#visorTitulo').textContent = titulo || 'Comprobante';
+    visor.querySelector('#visorNota').textContent = nota || '';
+    visor.querySelector('#visorNueva').href = url;
+    visor.querySelector('#visorBajar').href = url + '&bajar=1';
+    visor.querySelector('#visorMarco').src = url;
+    visor.style.display = 'flex';
+  };
+
+  /** Para que quien abrió el visor sepa que Escape le toca a él, no a su ventana. */
+  window.visorAbierto = function () {
+    return !!visor && visor.style.display !== 'none';
+  };
 })();

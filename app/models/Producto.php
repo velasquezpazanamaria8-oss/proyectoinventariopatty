@@ -74,8 +74,10 @@ class Producto
     public static function autocompletar(string $termino, int $almacenId, int $limite = 15): array
     {
         return DB::todos(
-            'SELECT pr.id, pr.codigo, pr.descripcion, pr.precio_compra, pr.costo_promedio,
-                    un.codigo AS unidad, COALESCE(s.cantidad, 0) AS stock
+            // precio_venta lo necesita la cotización: es el precio que se
+            // ofrece al cliente, no el costo con el que entró.
+            'SELECT pr.id, pr.codigo, pr.descripcion, pr.precio_compra, pr.precio_venta,
+                    pr.costo_promedio, un.codigo AS unidad, COALESCE(s.cantidad, 0) AS stock
                FROM productos pr
                JOIN unidades un ON un.id = pr.unidad_id
                LEFT JOIN stock s ON s.producto_id = pr.id AND s.almacen_id = :alm

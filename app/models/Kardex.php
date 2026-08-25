@@ -137,6 +137,108 @@ class Kardex
         return $kardexId;
     }
 
+    /**
+     * Recalcula la columna de saldos leyendo el kardex en orden cronológico.
+     *
+     * El saldo se graba en el momento de registrar el movimiento, así que si un
+     * comprobante se convierte más tarde de lo que le tocaba por fecha —porque
+     * falló y se reintentó después— la columna deja de progresar al leerla por
+     * fecha. Las cantidades totales siguen bien; lo que queda mal es el histórico
+     * que se enseña en el reporte, justo lo que un contador va revisando línea
+     * a línea.
+     *
+     * Sólo se reescriben columnas DERIVADAS: cantidad, tipo y fecha de cada
+     * movimiento no se tocan. No se inventa nada, se vuelve a sumar.
+     *
+     * Con PEPS o UEPS haría falta reproducir además el consumo de capas, que es
+     * otro problema; ahí se avisa en vez de dejar el resultado a medias.
+     *
+     * @return array recuento de lo corregido
+     */
+    public static function recalcularSaldos(): array
+    {
+        if (Valorizacion::usaCapas()) {
+            throw new RuntimeException(
+                'Con ' . Valorizacion::metodo() . ' el saldo depende de las capas de costo, '
+                . 'que habría que reconstruir una por una. En ese caso conviene deshacer los '
+                . 'movimientos y volver a generarlos.');
+        }
+
+        $global = Valorizacion::ambito() === Valorizacion::AMBITO_GLOBAL;
+        $r = ['revisados' => 0, 'corregidos' => 0, 'productos' => 0];
+
+        // Se agrupa por producto (y almacén si cada uno lleva su costo), que es
+        // el ámbito donde el saldo tiene sentido.
+        $filas = DB::todos(
+            'SELECT id, producto_id, almacen_id, tipo, cantidad, costo_unitario,
+                    saldo_cantidad, saldo_costo, saldo_valor
+               FROM kardex WHERE ' . Empresa::filtro() . '
+              ORDER BY producto_id, ' . ($global ? '' : 'almacen_id, ') . 'fecha, id',
+            Empresa::param());
+
+        $grupos = [];
+        foreach ($filas as $k) {
+            $clave = $global ? $k['producto_id'] : $k['producto_id'] . '-' . $k['almacen_id'];
+            $grupos[$clave][] = $k;
+        }
+
+        DB::transaccion(function () use ($grupos, &$r) {
+            foreach ($grupos as $movimientos) {
+                $cantidad = 0.0;
+                $valor    = 0.0;
+                $tocado   = false;
+
+                foreach ($movimientos as $k) {
+                    $r['revisados']++;
+                    $cant = (float) $k['cantidad'];
+                    $esIngreso = in_array($k['tipo'], [self::ENTRADA, self::AJUSTE_POS, self::INV_INICIAL], true);
+
+                    if ($esIngreso) {
+                        // El promedio se recalcula con lo que había justo antes.
+                        $valor    = round($valor + $cant * (float) $k['costo_unitario'], 4);
+                        $cantidad = round($cantidad + $cant, 4);
+                        $costoMov = (float) $k['costo_unitario'];
+                    } else {
+                        // Una salida se lleva mercadería al costo promedio vigente.
+                        $costoMov = $cantidad > 0 ? round($valor / $cantidad, 4) : 0.0;
+                        $valor    = round($valor - $cant * $costoMov, 4);
+                        $cantidad = round($cantidad - $cant, 4);
+                        if ($cantidad <= 0) $valor = 0.0;      // sin existencias no queda valor
+                    }
+
+                    $costoSaldo = $cantidad > 0 ? round($valor / $cantidad, 4) : $costoMov;
+
+                    $cambia = abs((float) $k['saldo_cantidad'] - $cantidad) > 0.0001
+                        || abs((float) $k['saldo_costo'] - $costoSaldo) > 0.0001
+                        || abs((float) $k['saldo_valor'] - $valor) > 0.0001
+                        || (!$esIngreso && abs((float) $k['costo_unitario'] - $costoMov) > 0.0001);
+
+                    if (!$cambia) {
+                        continue;
+                    }
+                    $datos = [
+                        'saldo_cantidad' => $cantidad,
+                        'saldo_costo'    => $costoSaldo,
+                        'saldo_valor'    => $valor,
+                    ];
+                    if (!$esIngreso) {
+                        $datos['costo_unitario'] = $costoMov;   // el costo de ventas del momento
+                    }
+                    DB::actualizar('kardex', $datos, 'id = :id', [':id' => $k['id']]);
+                    $r['corregidos']++;
+                    $tocado = true;
+                }
+
+                if ($tocado) {
+                    $r['productos']++;
+                }
+            }
+        });
+
+        Auditoria::registrar('KARDEX_SALDOS_RECALCULADOS', 'kardex', null, $r);
+        return $r;
+    }
+
     /** Historial de un producto. RF-08. */
     public static function porProducto(int $productoId, ?int $almacenId = null, ?string $desde = null, ?string $hasta = null): array
     {

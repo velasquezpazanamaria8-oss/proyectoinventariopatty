@@ -55,6 +55,19 @@ $puedeGestionar = Auth::puede('catalogos.gestionar');
         <input type="text" name="q" value="<?= e($q) ?>" placeholder="Buscar...">
         <button class="btn btn-sm">Buscar</button>
       </form>
+      <?php /* Los clientes de verdad ya están en las ventas descargadas de
+               SUNAT, con su RUC y su razón social tal como los declaró el
+               emisor. Traerlos de ahí ahorra teclearlos y evita erratas. */
+      if ($tabla === 'clientes' && $porSembrar > 0 && $puedeGestionar): ?>
+        <form method="post" style="margin:0">
+          <?= Csrf::campo() ?>
+          <input type="hidden" name="op" value="sembrar_clientes">
+          <button class="btn btn-sm btn-verde"
+                  data-confirmar="Se agregarán <?= (int) $porSembrar ?> cliente(s) tomados de sus ventas ya importadas. Los que ya existan no se tocan. ¿Continuar?">
+            Traer <?= (int) $porSembrar ?> de mis ventas
+          </button>
+        </form>
+      <?php endif; ?>
       <button class="btn btn-sm btn-gris" onclick="exportarCSV('tablaCat','<?= e($tabla) ?>')">CSV</button>
     </div>
   </div>

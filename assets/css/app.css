@@ -139,6 +139,22 @@ table.tabla tr.sin-stock td{color:var(--suave)}
 .login-card p.sub{text-align:center;color:var(--suave);margin:0 0 20px;font-size:13px}
 .login-card .btn{width:100%;padding:11px;margin-top:6px}
 
+/* Un botón desactivado debe verse desactivado: si no, se pulsa y parece que
+   el sistema no responde. Afecta a «Eliminar para siempre» mientras falta el
+   RUC y a «Descargar pendientes» cuando no queda nada por bajar. */
+.btn:disabled,.btn[disabled]{opacity:.45;cursor:not-allowed;box-shadow:none}
+.btn:disabled:hover,.btn[disabled]:hover{filter:none}
+
+/* Meses en los que aparece un producto por conciliar */
+.badge-mes{background:#eef2f7;color:var(--azul-2);border:1px solid var(--linea);
+           font-size:11px;padding:1px 6px;margin:2px 2px 0 0;display:inline-block}
+.badge-mes:hover{background:var(--azul-2);color:#fff;border-color:var(--azul-2)}
+
+/* Número de líneas que abre los comprobantes del producto */
+.enlace-lineas{background:none;border:0;padding:0;font:inherit;color:var(--azul-2);
+               cursor:pointer;text-decoration:underline dotted;text-underline-offset:3px}
+.enlace-lineas:hover{color:var(--azul);text-decoration:underline}
+
 /* Paginación */
 .paginacion{display:flex;gap:5px;padding:12px 16px;flex-wrap:wrap;align-items:center}
 .paginacion a,.paginacion span{padding:5px 10px;border:1px solid var(--linea);border-radius:6px;background:#fff}
@@ -153,3 +169,37 @@ table.tabla tr.sin-stock td{color:var(--suave)}
   .sidebar,.topbar,.pie,.filtros,.acciones,.btn{display:none!important}
   body{background:#fff} .contenido{padding:0}
 }
+
+/* Portada de selección de empresa */
+.rejilla-empresas{display:grid;gap:16px;
+  grid-template-columns:repeat(auto-fill,minmax(240px,1fr))}
+.tarjeta-empresa{display:flex;flex-direction:column;background:#fff;border:1px solid var(--linea);
+  border-radius:var(--radio);box-shadow:var(--sombra);overflow:hidden;color:var(--texto);
+  transition:transform .12s,box-shadow .12s}
+.tarjeta-empresa:hover{transform:translateY(-2px);box-shadow:0 6px 18px rgba(16,24,40,.13)}
+.tarjeta-empresa.actual{border-color:var(--acento);box-shadow:0 0 0 2px rgba(15,157,143,.25)}
+/* El logo se muestra completo, sin recortar: son marcas y deformarlas queda mal. */
+.te-logo{height:104px;display:grid;place-items:center;background:#f8fafc;
+  border-bottom:1px solid var(--linea);padding:12px}
+.te-logo img{max-width:100%;max-height:80px;object-fit:contain}
+.te-inicial{font-size:30px;font-weight:700;color:var(--azul-2);letter-spacing:.04em}
+.te-cuerpo{padding:12px 14px;display:flex;flex-direction:column;gap:3px;flex:1}
+.te-nombre{font-size:13.5px;line-height:1.25}
+.te-ruc{font-size:12px;color:var(--suave)}
+.te-datos{font-size:11.5px;color:var(--suave);margin-top:4px}
+.te-pie{padding:10px 14px;border-top:1px solid var(--linea);background:#fbfcfd;text-align:right}
+.te-entrar{font-size:12.5px;font-weight:600;color:var(--azul-2)}
+
+/* Pie con la empresa activa siempre a la vista */
+.pie-contexto{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.pie-contexto strong{color:var(--texto)}
+
+/* Pantalla de portada (sin menú lateral) */
+.fondo-portada{background:var(--fondo)}
+.portada-cab{display:flex;align-items:center;justify-content:space-between;gap:14px;
+  background:var(--azul);padding:12px 22px;flex-wrap:wrap}
+.portada-cab .brand{padding:0;border:0}
+.portada-cab .usuario-nombre{color:#cfe0ee}
+.portada-cuerpo{max-width:1180px;margin:0 auto;padding:26px 22px 40px}
+.portada-titulo{font-size:22px;margin:0 0 4px}
+.portada-sub{color:var(--suave);margin:0 0 22px;max-width:760px}

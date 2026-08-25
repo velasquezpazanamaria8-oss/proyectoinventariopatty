@@ -5,12 +5,18 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title><?= e($tituloPagina) ?> — Kardex</title>
-<link rel="stylesheet" href="<?= url('assets/css/app.css') ?>">
+<?php /* Se cuelga la fecha del archivo del enlace: al subir una versión nueva
+         el navegador la pide de verdad, en vez de servir la de su caché. */
+$ver = function (string $ruta): string {
+    $t = @filemtime(BASE_PATH . '/' . $ruta);
+    return url($ruta) . ($t ? '?v=' . $t : '');
+}; ?>
+<link rel="stylesheet" href="<?= $ver('assets/css/app.css') ?>">
 <?php /* app.js va en el <head> y sin defer: las vistas traen scripts en línea
          que usan sus funciones, y esos se ejecutan durante el parseo del body,
          antes que cualquier script colocado al final. */ ?>
 <script>window.BASE_URL = <?= json_encode(Vista::url('')) ?>;</script>
-<script src="<?= url('assets/js/app.js') ?>"></script>
+<script src="<?= $ver('assets/js/app.js') ?>"></script>
 </head>
 <body>
 <div class="layout">
@@ -35,7 +41,8 @@
         <a href="<?= url('catalogos.php?t=categorias') ?>">Categorías</a>
         <a href="<?= url('catalogos.php?t=marcas') ?>">Marcas</a>
         <a href="<?= url('catalogos.php?t=proveedores') ?>">Proveedores</a>
-        <a href="<?= url('catalogos.php?t=almacenes') ?>">Almacenes</a>
+        <a href="<?= url('catalogos.php?t=clientes') ?>">Clientes</a>
+        <a href="<?= url('catalogos.php?t=almacenes') ?>">Sucursales</a>
         <a href="<?= url('catalogos.php?t=unidades') ?>">Unidades</a>
       <?php endif; ?>
 
@@ -47,6 +54,12 @@
       <?php if (Auth::puede('ajustes.registrar')): ?><a href="<?= url('ajustes.php') ?>">Ajustes</a><?php endif; ?>
       <?php if (Auth::puede('kardex.ver')): ?><a href="<?= url('kardex.php') ?>">Kardex</a><?php endif; ?>
 
+      <?php if (Auth::puede('cotizaciones.gestionar')): ?>
+        <span class="menu-grupo">Ventas</span>
+        <a href="<?= url('cotizaciones.php') ?>">Cotizaciones</a>
+        <a href="<?= url('cotizacion_diseno.php') ?>">Diseño de cotización</a>
+      <?php endif; ?>
+
       <span class="menu-grupo">Consultas</span>
       <?php if (Auth::puede('inventario.ver')): ?>
         <a href="<?= url('inventario.php') ?>">Stock actual</a>
@@ -55,6 +68,14 @@
       <?php if (Auth::puede('reportes.ver')): ?><a href="<?= url('reportes.php') ?>">Reportes</a><?php endif; ?>
       <?php if (Auth::puede('usuarios.ver') || Auth::puede('empresas.gestionar')): ?>
         <span class="menu-grupo">Administración</span>
+      <?php endif; ?>
+      <?php if (Auth::puede('sunat.gestionar')): ?>
+        <a href="<?= url('sunat.php') ?>">Conexión SUNAT</a>
+        <a href="<?= url('sunat_comprobantes.php') ?>">Comprobantes SUNAT</a>
+        <a href="<?= url('sunat_descargas.php') ?>">Descarga de CPE</a>
+        <a href="<?= url('sunat_conciliar.php') ?>">Conciliar productos</a>
+        <a href="<?= url('sunat_generar.php') ?>">Generar movimientos</a>
+        <a href="<?= url('sunat_estado.php') ?>">Estado SUNAT</a>
       <?php endif; ?>
       <?php if (Auth::puede('empresas.gestionar')): ?><a href="<?= url('empresas.php') ?>">Empresas</a><?php endif; ?>
       <?php if (Auth::puede('usuarios.ver')): ?><a href="<?= url('usuarios.php') ?>">Usuarios</a><?php endif; ?>
@@ -77,6 +98,9 @@
               </option>
             <?php endforeach; ?>
           </select>
+          <?php /* Vuelve a la portada, para verlas todas con su logo. */ ?>
+          <a class="btn btn-sm btn-gris" href="<?= url('elegir_empresa.php') ?>"
+             title="Ver todas las empresas">Cambiar</a>
         <?php endif; ?>
         <span class="usuario-nombre"><?= e(Auth::usuario()['nombres'] ?? '') ?></span>
         <span class="badge"><?= e(Auth::rol()) ?></span>
@@ -91,8 +115,15 @@
       <?= $contenido ?>
     </main>
 
-    <footer class="pie">
-      <?= e(Config::get('app.nombre')) ?> · <?= date('Y') ?>
+    <?php /* Recordatorio permanente de en qué empresa se está trabajando. Con
+             nueve empresas es fácil perder la cuenta, y un movimiento en la
+             equivocada cuesta mucho más de deshacer que de evitar. */ ?>
+    <footer class="pie pie-contexto">
+      <span><?= e(Config::get('app.nombre')) ?> · <?= date('Y') ?></span>
+      <?php if (Empresa::hayActiva()): ?>
+        <span>Empresa: <strong><?= e(Empresa::actual()['razon_social']) ?></strong>
+          · RUC <?= e(Empresa::actual()['ruc']) ?></span>
+      <?php endif; ?>
     </footer>
   </div>
 </div>

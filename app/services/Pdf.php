@@ -28,6 +28,16 @@ class Pdf
     private array  $columnas = [];
     private int    $numFila = 0;
 
+    /** Imágenes incrustadas: [nombre => ['datos'=>bin, 'ancho'=>px, 'alto'=>px, 'color'=>str]] */
+    private array $imagenes = [];
+
+    /**
+     * Los reportes llevan una banda con los datos de la empresa en cada página.
+     * Un documento con su propia cabecera —una cotización, por ejemplo— la
+     * desactiva y se dibuja entera.
+     */
+    private bool $conCabecera = true;
+
     private const FUENTE   = 'F1';   // Helvetica
     private const NEGRITA  = 'F2';   // Helvetica-Bold
     private const ALTO_FILA = 15;
@@ -116,7 +126,171 @@ class Pdf
     {
         $this->actual = '';
         $this->y      = $this->alto - $this->margen;
-        $this->cabecera();
+        if ($this->conCabecera) {
+            $this->cabecera();
+        }
+    }
+
+    // ------------------------------------------------------------------
+    // Composición libre — para documentos que no son un reporte tabular
+    // ------------------------------------------------------------------
+
+    /** Desactiva la banda automática de cabecera. */
+    public function sinCabecera(): void
+    {
+        $this->conCabecera = false;
+        if ($this->actual === '' && !$this->paginas) {
+            $this->y = $this->alto - $this->margen;
+        }
+    }
+
+    public function margen(): float  { return $this->margen; }
+    public function ancho(): float   { return $this->ancho; }
+    public function alto(): float    { return $this->alto; }
+    public function util(): float    { return $this->anchoUtil(); }
+    public function cursor(): float  { return $this->y; }
+    public function moverA(float $y): void { $this->y = $y; }
+
+    public function abrirPagina(): void
+    {
+        $this->cerrarPagina();
+        $this->nuevaPagina();
+    }
+
+    /** Escribe un texto en una posición concreta. El color va en #RRGGBB. */
+    public function escribir(string $txt, float $x, float $y, float $ancho, string $alin = 'izq',
+                             bool $negrita = false, float $tam = 9, string $color = '#1F2A36'): void
+    {
+        $this->asegurarPagina();
+        $this->texto($txt, $x, $y, $ancho, $alin, $negrita ? self::NEGRITA : self::FUENTE,
+            $tam, self::rgb($color));
+    }
+
+    /** Rectángulo relleno. */
+    public function caja(float $x, float $y, float $ancho, float $alto, string $color): void
+    {
+        $this->asegurarPagina();
+        $this->actual .= sprintf("%s rg %.2f %.2f %.2f %.2f re f\n",
+            self::rgb($color), $x, $y - $alto, $ancho, $alto);
+    }
+
+    /** Línea horizontal. */
+    public function linea(float $x, float $y, float $ancho, string $color = '#CBD5E1', float $grosor = 0.6): void
+    {
+        $this->asegurarPagina();
+        $this->actual .= sprintf("%s RG %.2f w %.2f %.2f m %.2f %.2f l S\n",
+            self::rgb($color), $grosor, $x, $y, $x + $ancho, $y);
+    }
+
+    /** Recuadro sin relleno. */
+    public function marco(float $x, float $y, float $ancho, float $alto,
+                          string $color = '#CBD5E1', float $grosor = 0.6): void
+    {
+        $this->asegurarPagina();
+        $this->actual .= sprintf("%s RG %.2f w %.2f %.2f %.2f %.2f re S\n",
+            self::rgb($color), $grosor, $x, $y - $alto, $ancho, $alto);
+    }
+
+    /**
+     * Coloca una imagen JPEG.
+     *
+     * Sólo JPEG: sus bytes se incrustan tal cual con el filtro DCTDecode, que es
+     * el mismo que usa el formato, así que no hay que descomprimir ni recomprimir
+     * nada. Un PNG obligaría a separar el canal alfa y rearmarlo; por eso los
+     * logos se convierten a JPEG al subirlos.
+     *
+     * @return float el alto que ocupó, para saber por dónde seguir
+     */
+    public function imagen(string $ruta, float $x, float $y, float $anchoMax, float $altoMax): float
+    {
+        $this->asegurarPagina();
+
+        $info = @getimagesize($ruta);
+        if (!$info || $info[2] !== IMAGETYPE_JPEG) {
+            return 0;                     // sin logo el documento sigue saliendo
+        }
+        [$px, $py] = $info;
+        $canales = $info['channels'] ?? 3;
+        if ($canales === 4) {
+            return 0;                     // CMYK: poco frecuente y no vale la pena
+        }
+
+        // Se respeta la proporción dentro del hueco disponible.
+        $escala = min($anchoMax / $px, $altoMax / $py);
+        $w = $px * $escala;
+        $h = $py * $escala;
+
+        $clave = 'Im' . count($this->imagenes);
+        $existente = array_search($ruta, array_column($this->imagenes, 'ruta', 'clave'), true);
+        if ($existente !== false) {
+            $clave = $existente;          // la misma imagen no se incrusta dos veces
+        } else {
+            $this->imagenes[$clave] = [
+                'ruta'  => $ruta,
+                'datos' => file_get_contents($ruta),
+                'ancho' => $px,
+                'alto'  => $py,
+                'color' => $canales === 1 ? 'DeviceGray' : 'DeviceRGB',
+            ];
+        }
+
+        // cm coloca y escala; q/Q aíslan la transformación del resto del flujo.
+        $this->actual .= sprintf("q %.2f 0 0 %.2f %.2f %.2f cm /%s Do Q\n",
+            $w, $h, $x, $y - $h, $clave);
+
+        return $h;
+    }
+
+    /** Ancho que ocuparía un texto, para poder repartirlo en líneas. */
+    public function medir(string $txt, float $tam, bool $negrita = false): float
+    {
+        return $this->anchoTexto(self::aLatin($txt), $tam,
+            $negrita ? self::NEGRITA : self::FUENTE);
+    }
+
+    /**
+     * Parte un texto en líneas que quepan en el ancho dado.
+     *
+     * Una descripción de producto puede ser larguísima —«BARRENOS DE 4 SANDVICK
+     * SANDVIK T38 4 PULG X 1 PULG ROCK»— y recortarla dejaría la cotización
+     * diciendo algo distinto de lo que se ofrece.
+     */
+    public function repartir(string $txt, float $ancho, float $tam): array
+    {
+        $palabras = preg_split('/\s+/', trim($txt)) ?: [];
+        $lineas = [];
+        $linea = '';
+        foreach ($palabras as $p) {
+            $prueba = $linea === '' ? $p : $linea . ' ' . $p;
+            if ($this->medir($prueba, $tam) <= $ancho - 8 || $linea === '') {
+                $linea = $prueba;
+            } else {
+                $lineas[] = $linea;
+                $linea = $p;
+            }
+        }
+        if ($linea !== '') {
+            $lineas[] = $linea;
+        }
+        return $lineas ?: [''];
+    }
+
+    /** Al componer libremente puede no haberse abierto ninguna página todavía. */
+    private function asegurarPagina(): void
+    {
+        if ($this->actual === '' && !$this->paginas) {
+            $this->nuevaPagina();
+        }
+    }
+
+    /** #RRGGBB -> "r g b" en la escala 0..1 que usa PDF. */
+    private static function rgb(string $hex): string
+    {
+        if (!preg_match('/^#?([0-9A-Fa-f]{6})$/', $hex, $m)) {
+            return '0 0 0';
+        }
+        [$r, $g, $b] = sscanf($m[1], '%2x%2x%2x');
+        return sprintf('%.3f %.3f %.3f', $r / 255, $g / 255, $b / 255);
     }
 
     private function cerrarPagina(): void
@@ -169,8 +343,8 @@ class Pdf
     private function texto(string $txt, float $x, float $y, float $ancho, string $alin,
                            string $fuente, float $tam, string $color = '0 0 0'): void
     {
-        $txt = $this->recortar($txt, $ancho - 8, $tam);
-        $w   = $this->anchoTexto($txt, $tam);
+        $txt = $this->recortar($txt, $ancho - 8, $tam, $fuente);
+        $w   = $this->anchoTexto($txt, $tam, $fuente);
 
         $px = match ($alin) {
             'der'    => $x + $ancho - 4 - $w,
@@ -183,19 +357,114 @@ class Pdf
     }
 
     /** Ancho aproximado en puntos (Helvetica ≈ 0.5 em por carácter). */
-    private function anchoTexto(string $txt, float $tam): float
+    /**
+     * Ancho real de un texto, en puntos.
+     *
+     * Las fuentes base no son de paso fijo: en Helvetica una «W» mide 944
+     * milésimas de em y una «i» 222. Calcularlo con una media aplanada hacía que
+     * el texto en mayúsculas —los títulos, las cabeceras de columna— se saliera
+     * por la derecha al alinearlo a ese lado, porque se estimaba más estrecho de
+     * lo que luego se dibujaba.
+     */
+    private function anchoTexto(string $txt, float $tam, string $fuente = self::FUENTE): float
     {
-        return strlen($txt) * $tam * 0.5;
+        $tabla = $fuente === self::NEGRITA ? self::anchosNegrita() : self::anchosNormal();
+        $suma = 0;
+        $len = strlen($txt);
+        for ($i = 0; $i < $len; $i++) {
+            $suma += $tabla[ord($txt[$i])] ?? 556;
+        }
+        return $suma / 1000 * $tam;
     }
 
-    private function recortar(string $txt, float $ancho, float $tam): string
+    /** Recorta un texto para que quepa, midiendo de verdad carácter a carácter. */
+    private function recortar(string $txt, float $ancho, float $tam, string $fuente = self::FUENTE): string
     {
         $txt = self::aLatin($txt);
-        $max = (int) max(1, floor($ancho / ($tam * 0.5)));
-        if (strlen($txt) <= $max) {
+        if ($this->anchoTexto($txt, $tam, $fuente) <= $ancho) {
             return $txt;
         }
-        return substr($txt, 0, max(1, $max - 1)) . '.';
+        $corte = '';
+        foreach (str_split($txt) as $ch) {
+            if ($this->anchoTexto($corte . $ch . '.', $tam, $fuente) > $ancho) {
+                break;
+            }
+            $corte .= $ch;
+        }
+        return ($corte === '' ? substr($txt, 0, 1) : $corte) . '.';
+    }
+
+    /**
+     * Anchura de cada carácter en milésimas de em, según las métricas oficiales
+     * de Helvetica. Sólo se listan los tramos que cambian; el resto toma 556,
+     * que es el ancho de un dígito y una aproximación segura.
+     */
+    private static function anchosNormal(): array
+    {
+        static $t = null;
+        if ($t !== null) {
+            return $t;
+        }
+        $t = array_fill(0, 256, 556);
+        $pares = [
+            32=>278, 33=>278, 34=>355, 35=>556, 36=>556, 37=>889, 38=>667, 39=>191,
+            40=>333, 41=>333, 42=>389, 43=>584, 44=>278, 45=>333, 46=>278, 47=>278,
+            58=>278, 59=>278, 60=>584, 61=>584, 62=>584, 63=>556, 64=>1015,
+            65=>667, 66=>667, 67=>722, 68=>722, 69=>667, 70=>611, 71=>778, 72=>722,
+            73=>278, 74=>500, 75=>667, 76=>556, 77=>833, 78=>722, 79=>778, 80=>667,
+            81=>778, 82=>722, 83=>667, 84=>611, 85=>722, 86=>667, 87=>944, 88=>667,
+            89=>667, 90=>611, 91=>278, 92=>278, 93=>278, 94=>469, 95=>556, 96=>333,
+            97=>556, 98=>556, 99=>500, 100=>556, 101=>556, 102=>278, 103=>556, 104=>556,
+            105=>222, 106=>222, 107=>500, 108=>222, 109=>833, 110=>556, 111=>556, 112=>556,
+            113=>556, 114=>333, 115=>500, 116=>278, 117=>556, 118=>500, 119=>722, 120=>500,
+            121=>500, 122=>500, 123=>334, 124=>260, 125=>334, 126=>584,
+            // Latin-1: acentuadas con el ancho de su letra base
+            161=>333, 176=>400, 186=>365, 170=>370, 191=>611,
+            192=>667, 193=>667, 194=>667, 195=>667, 196=>667, 197=>667, 198=>1000, 199=>722,
+            200=>667, 201=>667, 202=>667, 203=>667, 204=>278, 205=>278, 206=>278, 207=>278,
+            209=>722, 210=>778, 211=>778, 212=>778, 213=>778, 214=>778, 217=>722, 218=>722,
+            219=>722, 220=>722, 221=>667,
+            224=>556, 225=>556, 226=>556, 227=>556, 228=>556, 229=>556, 230=>889, 231=>500,
+            232=>556, 233=>556, 234=>556, 235=>556, 236=>222, 237=>222, 238=>222, 239=>222,
+            241=>556, 242=>556, 243=>556, 244=>556, 245=>556, 246=>556, 249=>556, 250=>556,
+            251=>556, 252=>556, 253=>500, 255=>500,
+        ];
+        foreach ($pares as $c => $w) { $t[$c] = $w; }
+        return $t;
+    }
+
+    /** Lo mismo para Helvetica-Bold, que es sensiblemente más ancha. */
+    private static function anchosNegrita(): array
+    {
+        static $t = null;
+        if ($t !== null) {
+            return $t;
+        }
+        $t = array_fill(0, 256, 556);
+        $pares = [
+            32=>278, 33=>333, 34=>474, 35=>556, 36=>556, 37=>889, 38=>722, 39=>238,
+            40=>333, 41=>333, 42=>389, 43=>584, 44=>278, 45=>333, 46=>278, 47=>278,
+            58=>333, 59=>333, 60=>584, 61=>584, 62=>584, 63=>611, 64=>975,
+            65=>722, 66=>722, 67=>722, 68=>722, 69=>667, 70=>611, 71=>778, 72=>722,
+            73=>278, 74=>556, 75=>722, 76=>611, 77=>833, 78=>722, 79=>778, 80=>667,
+            81=>778, 82=>722, 83=>667, 84=>611, 85=>722, 86=>667, 87=>944, 88=>667,
+            89=>667, 90=>611, 91=>333, 92=>278, 93=>333, 94=>584, 95=>556, 96=>333,
+            97=>556, 98=>611, 99=>556, 100=>611, 101=>556, 102=>333, 103=>611, 104=>611,
+            105=>278, 106=>278, 107=>556, 108=>278, 109=>889, 110=>611, 111=>611, 112=>611,
+            113=>611, 114=>389, 115=>556, 116=>333, 117=>611, 118=>556, 119=>778, 120=>556,
+            121=>556, 122=>500, 123=>389, 124=>280, 125=>389, 126=>584,
+            161=>333, 176=>400, 186=>365, 170=>370, 191=>611,
+            192=>722, 193=>722, 194=>722, 195=>722, 196=>722, 197=>722, 198=>1000, 199=>722,
+            200=>667, 201=>667, 202=>667, 203=>667, 204=>278, 205=>278, 206=>278, 207=>278,
+            209=>722, 210=>778, 211=>778, 212=>778, 213=>778, 214=>778, 217=>722, 218=>722,
+            219=>722, 220=>722, 221=>667,
+            224=>556, 225=>556, 226=>556, 227=>556, 228=>556, 229=>556, 230=>889, 231=>556,
+            232=>556, 233=>556, 234=>556, 235=>556, 236=>278, 237=>278, 238=>278, 239=>278,
+            241=>611, 242=>611, 243=>611, 244=>611, 245=>611, 246=>611, 249=>611, 250=>611,
+            251=>611, 252=>611, 253=>556, 255=>556,
+        ];
+        foreach ($pares as $c => $w) { $t[$c] = $w; }
+        return $t;
     }
 
     /** Las fuentes base usan WinAnsi: se convierte desde UTF-8. */
@@ -235,6 +504,23 @@ class Pdf
         $objs[3] = "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>";
         $objs[4] = "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>";
 
+        // Las imágenes van después de las páginas, cada una en su propio objeto.
+        // El recurso se declara en TODAS las páginas: cuesta nada y evita tener
+        // que llevar la cuenta de en cuál se usó cada una.
+        $idImagen = 5 + $total * 2;
+        $recursoImagenes = '';
+        foreach ($this->imagenes as $clave => $img) {
+            $objs[$idImagen] = "<< /Type /XObject /Subtype /Image"
+                . " /Width {$img['ancho']} /Height {$img['alto']}"
+                . " /ColorSpace /{$img['color']} /BitsPerComponent 8"
+                . " /Filter /DCTDecode /Length " . strlen($img['datos']) . " >>\n"
+                . "stream\n" . $img['datos'] . "\nendstream";
+            $recursoImagenes .= "/$clave $idImagen 0 R ";
+            $idImagen++;
+        }
+        $recursoImagenes = $recursoImagenes === ''
+            ? '' : "/XObject << $recursoImagenes>> ";
+
         foreach ($this->paginas as $i => $contenido) {
             $idPag = 5 + $i * 2;
             $idCnt = $idPag + 1;
@@ -248,8 +534,8 @@ class Pdf
 
             $objs[$idPag] = sprintf(
                 "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 %.2f %.2f] "
-                . "/Resources << /Font << /%s 3 0 R /%s 4 0 R >> >> /Contents %d 0 R >>",
-                $this->ancho, $this->alto, self::FUENTE, self::NEGRITA, $idCnt);
+                . "/Resources << /Font << /%s 3 0 R /%s 4 0 R >> %s>> /Contents %d 0 R >>",
+                $this->ancho, $this->alto, self::FUENTE, self::NEGRITA, $recursoImagenes, $idCnt);
 
             $objs[$idCnt] = "<< /Length " . strlen($flujo) . " >>\nstream\n" . $flujo . "endstream";
         }

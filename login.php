@@ -13,7 +13,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         [$ok, $msg] = Auth::intentarLogin(trim($_POST['usuario'] ?? ''), $_POST['clave'] ?? '');
         if ($ok) {
             Sesion::flash('ok', $msg);
-            Vista::redirigir('index.php');
+            // Con varias empresas se pasa por la portada: elegir a la vista evita
+            // ponerse a trabajar en la que quedó activa de la sesión anterior.
+            Vista::redirigir(count(Empresa::delUsuario(Auth::id())) > 1
+                ? 'elegir_empresa.php' : 'index.php');
         }
         $error = $msg;
     }

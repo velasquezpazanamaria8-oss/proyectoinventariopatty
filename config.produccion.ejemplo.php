@@ -20,6 +20,10 @@ return [
         'debug'     => false,
 
         'almacen_default' => 1,
+
+        // Clave de las tareas programadas. CAMBIARLA: mínimo 16 caracteres.
+        // Generar una con: php -r "echo bin2hex(random_bytes(16));"
+        'cron_clave' => 'CAMBIAR-POR-UNA-CLAVE-LARGA-Y-UNICA',
     ],
     'db' => [
         'host'    => 'localhost',

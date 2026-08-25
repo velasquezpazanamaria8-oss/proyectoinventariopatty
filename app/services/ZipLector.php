@@ -33,6 +33,24 @@ class ZipLector
         return array_keys($this->indice);
     }
 
+    /**
+     * Todas las entradas ya descomprimidas: [nombre => contenido].
+     * Una entrada dañada no aborta el resto: se devuelve vacía.
+     */
+    public static function entradas(string $binario): array
+    {
+        $zip = new self($binario);
+        $out = [];
+        foreach ($zip->archivos() as $nombre) {
+            try {
+                $out[$nombre] = $zip->leer($nombre);
+            } catch (Throwable $e) {
+                $out[$nombre] = '';
+            }
+        }
+        return $out;
+    }
+
     public function existe(string $nombre): bool
     {
         return isset($this->indice[$nombre]);

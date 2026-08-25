@@ -11,7 +11,8 @@ class Catalogo
         'marcas'      => ['etiqueta' => 'Marcas',      'campos' => ['nombre', 'estado'],                                      'label' => 'nombre'],
         'unidades'    => ['etiqueta' => 'Unidades',    'campos' => ['codigo', 'nombre', 'decimales'],                         'label' => 'nombre'],
         'proveedores' => ['etiqueta' => 'Proveedores', 'campos' => ['ruc', 'razon_social', 'telefono', 'email', 'direccion', 'estado'], 'label' => 'razon_social'],
-        'almacenes'   => ['etiqueta' => 'Almacenes',   'campos' => ['codigo', 'nombre', 'direccion', 'estado'],               'label' => 'nombre'],
+        'clientes'    => ['etiqueta' => 'Clientes',    'campos' => ['ruc', 'razon_social', 'telefono', 'email', 'direccion', 'estado'], 'label' => 'razon_social'],
+        'almacenes'   => ['etiqueta' => 'Sucursales / Almacenes',   'campos' => ['codigo', 'nombre', 'direccion', 'estado'],               'label' => 'nombre'],
     ];
 
     public static function valida(string $tabla): bool

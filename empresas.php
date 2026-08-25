@@ -19,12 +19,33 @@ Auth::requierePermiso('empresas.gestionar');
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     Csrf::verificar();
+    $op = $_POST['op'] ?? 'guardar';
     try {
-        $id = !empty($_POST['id']) ? (int) $_POST['id'] : null;
-        $nuevaId = Empresa::guardar($_POST, $id);
-        Sesion::flash('ok', $id
-            ? 'Empresa actualizada.'
-            : 'Empresa creada con sus catálogos base (almacén, unidades, categoría y marca).');
+        // Desactivar, reactivar y eliminar viajan por POST y no por un enlace:
+        // cambian el estado del sistema, y una simple <img> con esa dirección
+        // bastaría para dispararlos desde fuera con la sesión del administrador.
+        if ($op === 'desactivar') {
+            Empresa::desactivar((int) $_POST['id']);
+            Sesion::flash('ok', 'Empresa desactivada. Sus datos se conservan.');
+
+        } elseif ($op === 'reactivar') {
+            Empresa::activarDeNuevo((int) $_POST['id']);
+            Sesion::flash('ok', 'Empresa reactivada.');
+
+        } elseif ($op === 'eliminar') {
+            $id  = (int) $_POST['id'];
+            $emp = Empresa::buscar($id);
+            Empresa::eliminar($id, (string) ($_POST['ruc_confirmacion'] ?? ''));
+            Sesion::flash('ok', 'Se eliminó ' . ($emp['razon_social'] ?? 'la empresa')
+                . ' y todos sus datos de forma definitiva.');
+
+        } else {
+            $id = !empty($_POST['id']) ? (int) $_POST['id'] : null;
+            Empresa::guardar($_POST, $id);
+            Sesion::flash('ok', $id
+                ? 'Empresa actualizada.'
+                : 'Empresa creada con sus catálogos base (almacén, unidades, categoría y marca).');
+        }
     } catch (PDOException $e) {
         Sesion::flash('error', $e->errorInfo[1] == 1062 ? 'Ya existe una empresa con ese RUC.' : $e->getMessage());
     } catch (Throwable $e) {
@@ -33,18 +54,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     Vista::redirigir('empresas.php');
 }
 
-if (($_GET['a'] ?? '') === 'desactivar') {
-    try {
-        Empresa::desactivar((int) $_GET['id']);
-        Sesion::flash('ok', 'Empresa desactivada.');
-    } catch (Throwable $e) {
-        Sesion::flash('error', $e->getMessage());
-    }
-    Vista::redirigir('empresas.php');
+$empresas = Empresa::listar(trim($_GET['q'] ?? ''));
+
+// Qué se perdería al eliminar cada una: se enseña en la confirmación, para que
+// nadie borre sin ver primero el tamaño de lo que se lleva por delante.
+$contenido = [];
+foreach ($empresas as $em) {
+    $contenido[(int) $em['id']] = Empresa::contenido((int) $em['id']);
 }
 
 Vista::render('empresas/index', [
-    'empresas' => Empresa::listar(trim($_GET['q'] ?? '')),
-    'editar'   => !empty($_GET['id']) ? Empresa::buscar((int) $_GET['id']) : null,
-    'q'        => trim($_GET['q'] ?? ''),
+    'empresas'  => $empresas,
+    'contenido' => $contenido,
+    'editar'    => !empty($_GET['id']) ? Empresa::buscar((int) $_GET['id']) : null,
+    'q'         => trim($_GET['q'] ?? ''),
 ], 'Empresas del sistema');

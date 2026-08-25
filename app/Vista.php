@@ -38,9 +38,58 @@ class Vista
         require BASE_PATH . '/views/' . $__vista . '.php';
     }
 
+    /** Ruta base resuelta una sola vez por petición. */
+    private static ?string $base = null;
+
+    /**
+     * Prefijo de todas las URL del sistema.
+     *
+     * Si `app.base_url` es null se deduce comparando la carpeta del proyecto
+     * con la raíz del servidor web. Así el mismo código funciona en
+     * `localhost/proyectoinventariopatty/` (raíz = www) y en un dominio propio
+     * como `proyectoinventariopatty.test` (raíz = la carpeta del proyecto),
+     * sin tocar la configuración.
+     */
+    public static function base(): string
+    {
+        if (self::$base !== null) {
+            return self::$base;
+        }
+
+        $configurada = Config::get('app.base_url');
+        if ($configurada !== null) {
+            return self::$base = rtrim($configurada, '/');
+        }
+
+        $raiz = realpath($_SERVER['DOCUMENT_ROOT'] ?? '');
+        $proy = realpath(BASE_PATH);
+
+        if ($raiz === false || $proy === false) {
+            return self::$base = '';        // consola: sin servidor web
+        }
+
+        $norm = fn(string $p): string => rtrim(str_replace('\\', '/', $p), '/');
+        $raiz = $norm($raiz);
+        $proy = $norm($proy);
+
+        // En Windows las rutas no distinguen mayúsculas.
+        $prefijo = DIRECTORY_SEPARATOR === '\\'
+            ? strcasecmp(substr($proy, 0, strlen($raiz)), $raiz) === 0
+            : str_starts_with($proy, $raiz);
+
+        // El prefijo tiene que caer en un límite de carpeta: /var/www/proyecto
+        // es prefijo textual de /var/www/proyectoinventariopatty sin ser su
+        // padre, y aceptarlo devolvería 'inventariopatty' —sin barra inicial—,
+        // es decir URLs relativas que se rompen fuera de la raíz.
+        $resto = substr($proy, strlen($raiz));
+        $iguales = $prefijo && ($resto === '' || $resto[0] === '/');
+
+        return self::$base = $iguales ? $resto : '';
+    }
+
     public static function url(string $ruta = ''): string
     {
-        return rtrim(Config::get('app.base_url', ''), '/') . '/' . ltrim($ruta, '/');
+        return self::base() . '/' . ltrim($ruta, '/');
     }
 
     public static function redirigir(string $ruta): never
