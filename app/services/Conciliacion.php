@@ -95,6 +95,8 @@ class Conciliacion
             $f2['producto']   = $mapa && $mapa['producto_id'] ? Producto::buscar((int) $mapa['producto_id']) : null;
             $f2['ignorado']   = $mapa ? (bool) $mapa['ignorar'] : false;
             $f2['sugerencia'] = ($mapa === null) ? self::sugerir($f2) : null;
+            // Sólo tiene sentido avisar de lo que aún está sin decidir.
+            $f2['no_inventario'] = $mapa === null ? self::pareceNoInventario($f2) : null;
         }
         return $filas;
     }
@@ -402,7 +404,8 @@ class Conciliacion
     public static function avance(array $f = []): array
     {
         $items = self::pendientes($f);
-        $r = ['total' => count($items), 'mapeados' => 0, 'ignorados' => 0, 'sin_decidir' => 0, 'sugeridos' => 0];
+        $r = ['total' => count($items), 'mapeados' => 0, 'ignorados' => 0,
+              'sin_decidir' => 0, 'sugeridos' => 0, 'no_inventario' => 0];
 
         foreach ($items as $i) {
             if ($i['ignorado'])            $r['ignorados']++;
@@ -410,9 +413,99 @@ class Conciliacion
             else {
                 $r['sin_decidir']++;
                 if ($i['sugerencia']) $r['sugeridos']++;
+                if ($i['no_inventario']) $r['no_inventario']++;
             }
         }
         return $r;
+    }
+
+
+    /**
+     * Conceptos que casi nunca son mercadería.
+     *
+     * Un comprobante no sólo trae productos: trae anticipos, comisiones,
+     * detracciones, intereses, fletes y servicios sueltos. Meter eso al kardex
+     * lo ensucia —«ANTICIPO: FACTURA NRO. E001-771» no es un artículo que
+     * entre y salga del almacén— y además descuadra el inventario, porque
+     * suelen venir con importes negativos o con cantidad 1 y valor enorme.
+     *
+     * Esto NO decide nada solo: marca la fila para que salte a la vista y se
+     * pueda ignorar en bloque. La palabra final es siempre de quien concilia,
+     * porque una ferretería sí puede vender una «manguera de agua» y un taller
+     * sí puede facturar un «servicio» que lleve repuestos dentro.
+     *
+     * Se buscan palabras enteras: «PRIMA» no debe saltar dentro de «PRIMARIA».
+     */
+    private const CONCEPTOS = [
+        'anticipo'    => 'ANTICIPOS?|ADELANTOS?',
+        'detracción'  => 'DETRACC(?:ION|IÓN)(?:ES)?',
+        'comisión'    => 'COMISI(?:ON|ÓN)(?:ES)?',
+        'interés'     => 'INTER(?:ES|ÉS)(?:ES)?|MORA|PENALIDAD(?:ES)?',
+        'retención'   => 'RETENCI(?:ON|ÓN)(?:ES)?|PERCEPCI(?:ON|ÓN)(?:ES)?',
+        'flete'       => 'FLETES?|ESTIBAS?|DESESTIBAS?',
+        // «SERVICIOS GENERALES» va en la razón social de media Perú y aparece
+        // dentro de la descripción de productos normales; no cuenta.
+        'servicio'    => 'SERVICIOS?(?!\s+GENERALES)|HONORARIOS?|ASESOR(?:IA|ÍA)|CONSULTOR(?:IA|ÍA)',
+        'alquiler'    => 'ALQUILER(?:ES)?|ARRENDAMIENTOS?|MERCED\s+CONDUCTIVA',
+        'prima'       => 'PRIMA\s+COMERCIAL|PRIMAS?\s+DE\s+SEGURO',
+        'financiero'  => 'ITF|PORTES?|GASTOS?\s+(?:BANCARIOS?|ADMINISTRATIVOS?|NOTARIALES?)',
+        'ajuste'      => 'REDONDEOS?|DESCUENTOS?\s+GLOBAL(?:ES)?|AJUSTES?\s+DE\s+PRECIO',
+    ];
+
+    /**
+     * ¿Esta fila huele a que no es mercadería? Devuelve el motivo, o null.
+     *
+     * Se mira la descripción y también el importe: un valor unitario negativo
+     * es, casi sin excepción, un ajuste o un anticipo que se descuenta, nunca
+     * un artículo.
+     */
+    public static function pareceNoInventario(array $item): ?array
+    {
+        $desc = mb_strtoupper(trim((string) ($item['descripcion'] ?? '')));
+
+        foreach (self::CONCEPTOS as $motivo => $patron) {
+            if (preg_match('/(?:^|[^A-ZÁÉÍÓÚÑ])(?:' . $patron . ')(?:[^A-ZÁÉÍÓÚÑ]|$)/u', $desc)) {
+                return ['motivo' => $motivo, 'detalle' => 'la descripción dice «' . $motivo . '»'];
+            }
+        }
+
+        // Referencia a otro comprobante dentro de la descripción: es un
+        // documento que se regulariza, no algo que se guarde en el almacén.
+        if (preg_match('/\b[A-Z]{1,4}\d{2,4}\s*-\s*\d+\b/u', $desc)
+            && preg_match('/\b(?:FACTURA|BOLETA|NOTA|N(?:RO|°|º)\.?)\b/u', $desc)) {
+            return ['motivo' => 'referencia a otro comprobante',
+                    'detalle' => 'la descripción apunta a otro comprobante'];
+        }
+
+        if ((float) ($item['precio_min'] ?? 0) < 0 || (float) ($item['precio_max'] ?? 0) < 0) {
+            return ['motivo' => 'importe negativo',
+                    'detalle' => 'el valor unitario es negativo'];
+        }
+
+        return null;
+    }
+
+    /**
+     * Marca como «no es inventario» todo lo que la detección señala.
+     *
+     * Va en bloque porque son siempre los mismos conceptos mes tras mes, y
+     * decidirlos de uno en uno es lo que hace que la conciliación se abandone
+     * a medias. Sólo toca lo que está sin decidir: nada de lo ya emparejado
+     * se pierde.
+     *
+     * @return int filas marcadas
+     */
+    public static function ignorarConceptos(array $f = []): int
+    {
+        $n = 0;
+        foreach (self::pendientes($f) as $i) {
+            if ($i['mapa'] !== null || !$i['no_inventario']) {
+                continue;
+            }
+            self::decidir($i['origen_ruc'], $i['clave'], null, true, (string) $i['descripcion']);
+            $n++;
+        }
+        return $n;
     }
 
     // ------------------------------------------------------------------

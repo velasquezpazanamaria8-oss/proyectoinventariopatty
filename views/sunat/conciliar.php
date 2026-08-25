@@ -41,6 +41,33 @@
       <input type="hidden" name="almacen_id" value="<?= (int) $almacenId ?>">
     </form>
 
+    <?php if (!empty($avance['no_inventario'])): ?>
+      <form method="post" style="margin-top:10px">
+        <?= Csrf::campo() ?>
+        <input type="hidden" name="op" value="ignorar_conceptos">
+        <input type="hidden" name="periodo" value="<?= e($filtros['periodo']) ?>">
+        <input type="hidden" name="tipo" value="<?= e($filtros['tipo']) ?>">
+        <input type="hidden" name="almacen_id" value="<?= (int) $almacenId ?>">
+        <button class="btn btn-gris" type="submit"
+                data-confirmar="Se marcarán <?= (int) $avance['no_inventario'] ?> concepto(s) como «no es inventario». ¿Continuar?">
+          Marcar <?= (int) $avance['no_inventario'] ?> concepto(s) que no parecen productos
+        </button>
+        <span style="color:var(--suave);font-size:12.5px">
+          Anticipos, comisiones, detracciones, fletes, alquileres e importes negativos.
+          <a href="<?= url('sunat_conciliar.php?no_producto=1&periodo=' . urlencode($filtros['periodo'])
+                   . '&tipo=' . urlencode($filtros['tipo']) . '&almacen_id=' . (int) $almacenId) ?>">Verlos primero</a>
+        </span>
+      </form>
+    <?php endif; ?>
+
+    <?php if (!empty($soloNoProd)): ?>
+      <div class="alerta alerta-info" style="margin-top:10px">
+        Viendo sólo lo que <strong>no parece un producto</strong>.
+        <a href="<?= url('sunat_conciliar.php?periodo=' . urlencode($filtros['periodo'])
+                 . '&tipo=' . urlencode($filtros['tipo']) . '&almacen_id=' . (int) $almacenId) ?>">Ver todo</a>
+      </div>
+    <?php endif; ?>
+
     <?php if ($avance['sugeridos'] > 0): ?>
       <form method="post" style="margin-top:10px">
         <?= Csrf::campo() ?>
@@ -71,7 +98,8 @@
       <tbody>
       <?php foreach ($items as $i):
         $estado = $i['ignorado'] ? 'ignorado' : ($i['producto'] ? 'mapeado' : 'pendiente'); ?>
-        <tr data-clave="<?= e($i['clave']) ?>" data-ruc="<?= e($i['origen_ruc']) ?>"
+        <tr class="<?= $i['no_inventario'] ? 'fila-no-producto' : '' ?>"
+            data-clave="<?= e($i['clave']) ?>" data-ruc="<?= e($i['origen_ruc']) ?>"
             data-cod="<?= e($i['codigo_sunat']) ?>" data-desc="<?= e($i['descripcion']) ?>"
             data-und="<?= e($i['unidad_codigo']) ?>" data-undn="<?= e($i['unidad_nombre']) ?>"
             data-precio="<?= e($i['precio_min']) ?>" data-tipo="<?= e($i['tipo']) ?>">
@@ -121,6 +149,12 @@
               <input type="hidden" class="sug-id" value="<?= (int) $i['sugerencia']['producto']['id'] ?>">
             <?php else: ?>
               <span class="badge badge-warn">Sin decidir</span>
+            <?php endif; ?>
+            <?php if ($i['no_inventario']): ?>
+              <br><span class="badge badge-aviso"
+                    title="<?= e($i['no_inventario']['detalle']) ?>. Revíselo: es una pista, no una certeza.">
+                ¿No es producto? · <?= e($i['no_inventario']['motivo']) ?>
+              </span>
             <?php endif; ?>
           </td>
           <td class="no-export">

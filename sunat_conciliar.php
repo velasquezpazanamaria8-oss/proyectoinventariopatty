@@ -23,6 +23,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 ? "Se emparejaron $n producto(s) que ya existían con el mismo código."
                 : 'No había sugerencias por código exacto para aplicar.');
         }
+        if (($_POST['op'] ?? '') === 'ignorar_conceptos') {
+            $n = Conciliacion::ignorarConceptos([
+                'periodo' => $_POST['periodo'] ?? '', 'tipo' => $_POST['tipo'] ?? '']);
+            Sesion::flash('ok', $n
+                ? "Se marcaron $n concepto(s) como «no es inventario»: anticipos, comisiones, "
+                  . 'detracciones y demás. Si alguno sí era un producto, use «Cambiar» en su fila.'
+                : 'No quedaba ningún concepto de ésos sin decidir.');
+        }
         if (($_POST['op'] ?? '') === 'stock_inicial') {
             $almacen = (int) $_POST['almacen_id'];
             $n = Conciliacion::guardarStockInicial(
@@ -45,7 +53,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         Sesion::flash('error', $e->getMessage());
     }
     Vista::redirigir('sunat_conciliar.php?almacen_id=' . $almacenId
-        . (!empty($_POST['periodo']) ? '&periodo=' . $_POST['periodo'] : ''));
+        . (!empty($_POST['periodo']) ? '&periodo=' . $_POST['periodo'] : '')
+        . (!empty($_POST['tipo']) ? '&tipo=' . urlencode($_POST['tipo']) : ''));
 }
 
 $filtros = [
@@ -53,9 +62,20 @@ $filtros = [
     'tipo'    => $_GET['tipo'] ?? '',
 ];
 
+$items  = Conciliacion::pendientes($filtros);
+$avance = Conciliacion::avance($filtros);
+
+// Ver sólo lo que no parece producto: con cientos de filas, los anticipos y
+// las comisiones se pierden entre la mercadería y nunca se deciden.
+$soloNoProducto = !empty($_GET['no_producto']);
+if ($soloNoProducto) {
+    $items = array_values(array_filter($items, fn($i) => (bool) $i['no_inventario']));
+}
+
 Vista::render('sunat/conciliar', [
-    'items'      => Conciliacion::pendientes($filtros),
-    'avance'     => Conciliacion::avance($filtros),
+    'items'      => $items,
+    'avance'     => $avance,
+    'soloNoProd' => $soloNoProducto,
     'periodos'   => SunatComprobante::periodosSincronizados(),
     'filtros'    => $filtros,
     'almacenes'  => $almacenes,

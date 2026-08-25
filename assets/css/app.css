@@ -367,3 +367,14 @@ table.tabla tr.sin-stock td{color:var(--suave)}
 /* Deshacer/rehacer: sin nada que deshacer el botón se ve apagado, para que no
    parezca que la pulsación se perdió. */
 .lienzo-barra .btn:disabled { opacity: .45; cursor: default; }
+
+/* Conciliación: lo que no parece mercadería.
+   Anticipos, comisiones y detracciones se pierden entre cientos de productos,
+   y meterlos al kardex lo ensucia. Se tiñen para que salten a la vista, sin
+   decidir por el usuario: la fila sigue igual de operable. */
+tr.fila-no-producto > td { background: #FFFBEB; }
+tr.fila-no-producto:hover > td { background: #FEF3C7; }
+.badge-aviso {
+  background: #FEF3C7; color: #92400E; border: 1px solid #FDE68A;
+  cursor: help; font-size: 11px;
+}
