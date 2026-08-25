@@ -38,4 +38,7 @@ Vista::renderPlano('empresas/elegir', [
     'empresas' => $empresas,
     'resumen'  => $resumen,
     'actual'   => Empresa::hayActiva() ? Empresa::id() : 0,
+    // Dar de alta una empresa desde aquí evita el rodeo de entrar a otra
+    // primero sólo para llegar a la pantalla de administración.
+    'puedeCrear' => Auth::puede('empresas.gestionar'),
 ]);

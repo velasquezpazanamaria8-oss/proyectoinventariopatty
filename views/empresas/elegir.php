@@ -68,6 +68,15 @@
         </div>
       </a>
     <?php endforeach; ?>
+
+    <?php if ($puedeCrear): ?>
+      <a class="tarjeta-empresa te-nueva" href="<?= url('empresas.php') ?>">
+        <span class="te-mas">+</span>
+        <strong>Agregar empresa</strong>
+        <span class="te-nueva-ayuda">Se crea con su sucursal, unidades,
+          categoría y marca, lista para usar</span>
+      </a>
+    <?php endif; ?>
   </div>
 </main>
 
