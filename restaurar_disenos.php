@@ -2,8 +2,9 @@
 /**
  * Sube a esta base los DISEÑOS DE COTIZACIÓN (PDF) armados en local:
  * sólo la tabla cotizacion_config y sus logos. No toca productos ni
- * SUNAT, ni crea empresas — empareja por RUC (los IDs de empresa no
- * coinciden entre local y este servidor).
+ * SUNAT, ni crea empresas — empareja por RUC (comparando sólo dígitos,
+ * por si el RUC guardado aquí trae espacios u otros caracteres) porque
+ * los IDs de empresa no coinciden entre local y este servidor.
  *
  *   Navegador: https://tudominio.com/restaurar_disenos.php
  *   Consola:   php restaurar_disenos.php
@@ -17,6 +18,7 @@ if (PHP_SAPI !== 'cli') {
     header('Content-Type: text/plain; charset=utf-8');
 }
 function paso(string $t = ''): void { echo $t . PHP_EOL; }
+function soloDigitos(string $s): string { return preg_replace('/\D+/', '', $s); }
 
 $filas = array (
   0 => 
@@ -275,16 +277,23 @@ try {
     paso('Restaurando diseños de cotización...');
     paso('');
 
-    // 1. Logos: sólo se escriben si existe una empresa con ese RUC aquí.
+    // Mapa RUC (sólo dígitos) -> id, de las empresas que ya existen aquí.
+    $empresas = DB::todos('SELECT id, ruc FROM empresas');
+    $idPorDigitos = [];
+    foreach ($empresas as $e) {
+        $idPorDigitos[soloDigitos($e['ruc'])] = (int) $e['id'];
+    }
+
+    // 1. Logos
     $dirLogos = __DIR__ . '/storage/logos';
-    $idPorRuc = [];
+    $idPorRucOrigen = [];
     foreach ($logos as $ruc => $b64) {
-        $id = DB::valor('SELECT id FROM empresas WHERE ruc = :r', [':r' => $ruc]);
+        $id = $idPorDigitos[soloDigitos($ruc)] ?? null;
         if (!$id) {
             paso("[--] RUC $ruc no existe aquí, se omite su logo");
             continue;
         }
-        $idPorRuc[$ruc] = (int) $id;
+        $idPorRucOrigen[$ruc] = $id;
         $destino = "$dirLogos/empresa-$id.jpg";
         file_put_contents($destino, base64_decode($b64));
         paso("[OK] logo escrito: storage/logos/empresa-$id.jpg (RUC $ruc)");
@@ -299,7 +308,7 @@ try {
         $ruc = $fila['ruc'];
         unset($fila['ruc']);
 
-        $empresaId = $idPorRuc[$ruc] ?? DB::valor('SELECT id FROM empresas WHERE ruc = :r', [':r' => $ruc]);
+        $empresaId = $idPorRucOrigen[$ruc] ?? ($idPorDigitos[soloDigitos($ruc)] ?? null);
         if (!$empresaId) {
             paso("[--] RUC $ruc no existe aquí, se omite su diseño");
             $omitidas++;
