@@ -5,8 +5,7 @@ $incluyeIgv = $esNueva ? (bool) $cfg['incluye_igv'] : (bool) $cot['incluye_igv']
 
 <div class="tarjeta">
   <div class="tarjeta-cab">
-    <h2><?= $esNueva ? 'Nueva cotización' : 'Editar cotización' ?>
-      — N° <?= e(CotizacionConfig::formatoNumero($cfg, $numero)) ?></h2>
+    <h2><?= $esNueva ? 'Nueva cotización' : 'Editar cotización' ?></h2>
     <a class="btn btn-sm btn-gris" href="<?= url('cotizaciones.php') ?>">Volver</a>
   </div>
 
@@ -36,6 +35,15 @@ $incluyeIgv = $esNueva ? (bool) $cfg['incluye_igv'] : (bool) $cot['incluye_igv']
         <input type="date" name="fecha" required value="<?= e($cot['fecha'] ?? date('Y-m-d')) ?>"></div>
       <div class="campo"><label>Válida hasta</label>
         <input type="date" name="valida_hasta" value="<?= e($cot['valida_hasta'] ?? '') ?>"></div>
+      <div class="campo">
+        <label>N° de cotización</label>
+        <input type="number" name="numero" min="1" step="1" value="<?= (int) $numero ?>">
+        <small style="color:var(--suave)">
+          Se propone el siguiente correlativo; cámbielo sólo si esta empresa
+          ya venía numerando distinto (por ejemplo, si viene de un Excel).
+          Vista: N° <?= e(CotizacionConfig::formatoNumero($cfg, $numero)) ?>
+        </small>
+      </div>
     </div>
 
     <?php // Datos sueltos: sólo hacen falta si no se eligió un cliente fichado. ?>

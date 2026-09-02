@@ -108,6 +108,12 @@ class Cotizacion
                 'observacion'       => trim((string) ($cab['observacion'] ?? '')) ?: null,
             ];
 
+            // El número normalmente es correlativo automático, pero al pasarse
+            // de Excel varias empresas ya venían con su propio número: se
+            // acepta forzarlo (sólo mientras la cotización sigue en borrador).
+            $numeroForzado = isset($cab['numero']) && trim((string) $cab['numero']) !== ''
+                ? (int) $cab['numero'] : null;
+
             if ($id !== null) {
                 $actual = DB::uno('SELECT * FROM cotizaciones WHERE id = :id AND empresa_id = :e',
                     [':id' => $id, ':e' => $empresaId]);
@@ -118,12 +124,19 @@ class Cotizacion
                     throw new RuntimeException('Sólo se puede modificar una cotización en borrador. '
                         . 'Ésta está ' . mb_strtolower(self::ESTADOS[$actual['estado']]) . '.');
                 }
+                if ($numeroForzado !== null && $numeroForzado !== (int) $actual['numero']) {
+                    self::validarNumeroLibre($numeroForzado, $empresaId, $id);
+                    $datos['numero'] = $numeroForzado;
+                }
                 DB::actualizar('cotizaciones', $datos, 'id = :id', [':id' => $id]);
                 DB::eliminar('cotizacion_detalle', 'cotizacion_id = :c', [':c' => $id]);
                 $cotId = $id;
             } else {
+                if ($numeroForzado !== null) {
+                    self::validarNumeroLibre($numeroForzado, $empresaId, null);
+                }
                 $datos['empresa_id'] = $empresaId;
-                $datos['numero']     = self::siguienteNumero();
+                $datos['numero']     = $numeroForzado ?? self::siguienteNumero();
                 $datos['estado']     = 'BORRADOR';
                 $datos['usuario_id'] = Auth::id();
                 $cotId = DB::insertar('cotizaciones', $datos);
@@ -194,6 +207,23 @@ class Cotizacion
         return 1 + (int) DB::valor(
             'SELECT COALESCE(MAX(numero), 0) FROM cotizaciones
               WHERE ' . Empresa::filtro() . ' FOR UPDATE', Empresa::param());
+    }
+
+    /** El número forzado a mano no puede chocar con uno ya usado por la empresa. */
+    private static function validarNumeroLibre(int $numero, int $empresaId, ?int $exceptoId): void
+    {
+        if ($numero <= 0) {
+            throw new InvalidArgumentException('El número de cotización debe ser mayor a 0.');
+        }
+        $where = 'empresa_id = :e AND numero = :n';
+        $p = [':e' => $empresaId, ':n' => $numero];
+        if ($exceptoId !== null) {
+            $where .= ' AND id != :id';
+            $p[':id'] = $exceptoId;
+        }
+        if (DB::valor("SELECT COUNT(*) FROM cotizaciones WHERE $where", $p)) {
+            throw new InvalidArgumentException("Ya existe la cotización N° $numero en esta empresa.");
+        }
     }
 
     /** Un producto de otra empresa no puede colarse en la cotización. */
