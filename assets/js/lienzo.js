@@ -507,6 +507,16 @@
       props.appendChild(campo('Zona', z));
     }
 
+    var dup = document.createElement('button');
+    dup.type = 'button';
+    dup.className = 'btn btn-sm btn-gris';
+    dup.style.marginTop = '12px';
+    dup.style.marginRight = '8px';
+    dup.textContent = 'Duplicar bloque';
+    dup.title = 'También con Ctrl+C y Ctrl+V';
+    dup.addEventListener('click', function () { duplicar(sel); });
+    props.appendChild(dup);
+
     var quitar = document.createElement('button');
     quitar.type = 'button';
     quitar.className = 'btn btn-sm btn-rojo';
@@ -631,9 +641,42 @@
     });
   });
 
+  // Ctrl+C copia el bloque seleccionado (una copia propia, no el portapapeles
+  // del sistema); Ctrl+V lo pega desplazado un poco, para no taparlo.
+  var portapapeles = null;
+
+  function duplicar(i) {
+    if (i < 0 || !bloques[i]) return;
+    var copia = JSON.parse(JSON.stringify(bloques[i]));
+    copia.x = Math.min(ANCHO_HOJA - 8, copia.x + 15);
+    copia.y = copia.y + 15;
+    bloques.push(copia);
+    seleccionar(bloques.length - 1);
+    cambio();
+  }
+
   document.addEventListener('keydown', function (ev) {
-    if (sel < 0) return;
     if (document.activeElement && /input|select|textarea/i.test(document.activeElement.tagName)) return;
+
+    if ((ev.ctrlKey || ev.metaKey) && ev.key.toLowerCase() === 'c') {
+      if (sel < 0) return;
+      portapapeles = JSON.parse(JSON.stringify(bloques[sel]));
+      ev.preventDefault();
+      return;
+    }
+    if ((ev.ctrlKey || ev.metaKey) && ev.key.toLowerCase() === 'v') {
+      if (!portapapeles) return;
+      var copia = JSON.parse(JSON.stringify(portapapeles));
+      copia.x = Math.min(ANCHO_HOJA - 8, copia.x + 15);
+      copia.y = copia.y + 15;
+      bloques.push(copia);
+      seleccionar(bloques.length - 1);
+      cambio();
+      ev.preventDefault();
+      return;
+    }
+
+    if (sel < 0) return;
     if (ev.key === 'Delete' || ev.key === 'Backspace') {
       bloques.splice(sel, 1); seleccionar(-1); cambio(); ev.preventDefault();
     }

@@ -40,6 +40,7 @@ $estado = [
     <strong>Lienzo — <?= e($empresa['razon_social']) ?></strong>
     <span class="lienzo-ayuda">
       Arrastre los bloques. Ctrl+Z deshace y Ctrl+Y rehace.
+      Ctrl+C copia el bloque elegido y Ctrl+V lo pega.
       La tabla no se mueve: crece con las líneas de cada cotización.
     </span>
   </div>
