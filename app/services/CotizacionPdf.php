@@ -91,8 +91,9 @@ class CotizacionPdf
         $y -= $altoBanda + 12;
 
         // Logo y datos del emisor, cada uno a un lado.
-        $anchoLogo = 150;
-        $altoLogo  = 58;
+        $escalaLogo = max(0.4, min(2.5, ((int) ($this->cfg['logo_escala'] ?? 100)) / 100));
+        $anchoLogo = 150 * $escalaLogo;
+        $altoLogo  = 58 * $escalaLogo;
         $pos = $this->cfg['logo_posicion'];
         $hayLogo = !empty($this->cfg['logo_ruta']) && is_file(BASE_PATH . '/' . $this->cfg['logo_ruta']);
 

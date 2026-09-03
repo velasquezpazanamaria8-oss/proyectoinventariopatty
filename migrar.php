@@ -405,6 +405,8 @@ try {
           empresa_id     INT UNSIGNED NOT NULL PRIMARY KEY,
           logo_ruta      VARCHAR(255) NULL,
           logo_posicion  ENUM('IZQUIERDA','CENTRO','DERECHA') NOT NULL DEFAULT 'IZQUIERDA',
+          -- Porcentaje sobre el tamaño de fábrica (150x58 pt).
+          logo_escala    TINYINT UNSIGNED NOT NULL DEFAULT 100,
           color          CHAR(7)      NOT NULL DEFAULT '#12395B',
           titulo         VARCHAR(60)  NOT NULL DEFAULT 'COTIZACIÓN',
           prefijo        VARCHAR(20)  NULL,
@@ -430,6 +432,16 @@ try {
         paso('[OK] creada la tabla cotizacion_config');
         $cambios++;
     } else { paso('[--] cotizacion_config ya existe'); }
+
+    // 9b. Tamaño del logo (empresas que ya tenían cotizacion_config antes de esto)
+    if (existeTabla('cotizacion_config') && !existeColumna('cotizacion_config', 'logo_escala')) {
+        DB::query("ALTER TABLE cotizacion_config
+                     ADD logo_escala TINYINT UNSIGNED NOT NULL DEFAULT 100 AFTER logo_posicion");
+        paso('[OK] cotizacion_config: agregado el tamaño del logo (logo_escala)');
+        $cambios++;
+    } else if (existeTabla('cotizacion_config')) {
+        paso('[--] cotizacion_config ya tiene logo_escala');
+    }
 
     // 6g-bis. Diseño libre: el lienzo
     //

@@ -60,6 +60,14 @@ foreach (array_keys($campos) as $c) {
         </div>
 
         <div class="campo">
+          <label>Tamaño del logo (<span id="logoEscalaVal"><?= (int) ($cfg['logo_escala'] ?? 100) ?></span>%)</label>
+          <input type="range" name="logo_escala" min="40" max="250" step="5"
+                 value="<?= (int) ($cfg['logo_escala'] ?? 100) ?>"
+                 oninput="document.getElementById('logoEscalaVal').textContent = this.value">
+          <small style="color:var(--suave)">100% es el tamaño de fábrica.</small>
+        </div>
+
+        <div class="campo">
           <label>Color</label>
           <input type="color" name="color" value="<?= e($cfg['color']) ?>" style="height:38px;padding:3px">
           <small style="color:var(--suave)">Franja de cabecera y títulos de la tabla.</small>

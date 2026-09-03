@@ -50,7 +50,7 @@ class CotizacionConfig
     private static function porDefecto(): array
     {
         return [
-            'logo_ruta' => null, 'logo_posicion' => 'IZQUIERDA', 'color' => '#12395B',
+            'logo_ruta' => null, 'logo_posicion' => 'IZQUIERDA', 'logo_escala' => 100, 'color' => '#12395B',
             'titulo' => 'COTIZACIÓN', 'prefijo' => null, 'digitos' => 4,
             'etiqueta_ref' => 'SEGÚN REQUERIMIENTO',
             'emisor_etiquetas' => 0, 'emisor_derecha' => 0,
@@ -122,6 +122,9 @@ class CotizacionConfig
         return [
             'logo_posicion'    => in_array($d['logo_posicion'] ?? '', ['IZQUIERDA','CENTRO','DERECHA'], true)
                                     ? $d['logo_posicion'] : 'IZQUIERDA',
+            // Porcentaje sobre el tamaño de fábrica (150x58 pt): no se guardan
+            // puntos sueltos para no desproporcionar el logo al agrandarlo.
+            'logo_escala'      => max(40, min(250, (int) ($d['logo_escala'] ?? 100))),
             'color'            => preg_match('/^#[0-9A-Fa-f]{6}$/', $d['color'] ?? '') ? strtoupper($d['color']) : '#12395B',
             'titulo'           => mb_substr(trim((string) ($d['titulo'] ?? '')), 0, 60) ?: 'COTIZACIÓN',
             'prefijo'          => mb_substr(trim((string) ($d['prefijo'] ?? '')), 0, 20) ?: null,
