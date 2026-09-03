@@ -121,14 +121,14 @@
       var rc = rot(b);
       d.style.height = '62px';
       d.appendChild(trozo('bl-rotulo', rc.rotulo, b.color));
-      d.appendChild(trozo('bl-linea', etiquetar(rc.empresa, S.cliente.nombre)));
-      d.appendChild(trozo('bl-linea', etiquetar(rc.direccion, S.cliente.direccion)));
+      d.appendChild(trozo('bl-linea', etiquetar(rc.empresa, S.cliente.nombre), b.color));
+      d.appendChild(trozo('bl-linea', etiquetar(rc.direccion, S.cliente.direccion), b.color));
       d.appendChild(trozo('bl-linea', etiquetar(rc.ruc, S.cliente.ruc)
-        + '   ' + etiquetar(rc.email, S.cliente.email)));
+        + '   ' + etiquetar(rc.email, S.cliente.email), b.color));
     } else if (b.tipo === 'totales') {
       var rt = rot(b);
-      d.appendChild(trozo('bl-linea', rt.subtotal));
-      d.appendChild(trozo('bl-linea', rt.igv));
+      d.appendChild(trozo('bl-linea', rt.subtotal, b.color));
+      d.appendChild(trozo('bl-linea', rt.igv, b.color));
       var fuerte = trozo('bl-fuerte', rt.total);
       fuerte.style.background = b.color;
       d.appendChild(fuerte);

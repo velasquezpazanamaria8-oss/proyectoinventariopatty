@@ -489,16 +489,16 @@ class CotizacionPdf
         $y = $yTop - 26;
         foreach ([[$r['empresa'], $this->cot['cliente_nombre']],
                   [$r['direccion'], $this->cot['cliente_direccion'] ?: '-']] as [$et, $valor]) {
-            $p->escribir($et !== '' ? $et . ':' : '', $x + 6, $y, 60, 'izq', false, 7.5, self::GRIS);
-            $p->escribir((string) $valor, $x + 58, $y, $ancho - 64, 'izq', false, 8.5, self::TEXTO);
+            $p->escribir($et !== '' ? $et . ':' : '', $x + 6, $y, 60, 'izq', false, 7.5, $color);
+            $p->escribir((string) $valor, $x + 58, $y, $ancho - 64, 'izq', false, 8.5, $color);
             $y -= 13;
         }
         $col = 0;
         foreach ([[$r['ruc'], $this->cot['cliente_ruc'] ?: '-'],
                   [$r['email'], $this->cot['cliente_email'] ?: '-']] as [$et, $valor]) {
             $xc = $x + 6 + $col * ($ancho / 2);
-            $p->escribir($et !== '' ? $et . ':' : '', $xc, $y, 60, 'izq', false, 7.5, self::GRIS);
-            $p->escribir((string) $valor, $xc + 52, $y, $ancho / 2 - 60, 'izq', false, 8.5, self::TEXTO);
+            $p->escribir($et !== '' ? $et . ':' : '', $xc, $y, 60, 'izq', false, 7.5, $color);
+            $p->escribir((string) $valor, $xc + 52, $y, $ancho / 2 - 60, 'izq', false, 8.5, $color);
             $col++;
         }
     }
@@ -524,8 +524,8 @@ class CotizacionPdf
                 $p->escribir($importe, $x + $etiqueta, $y - 12, $ancho - $etiqueta, 'der', true, 9.5, '#FFFFFF');
                 $y -= 18;
             } else {
-                $p->escribir($et, $x, $y - 11, $etiqueta, 'izq', false, 8.5, self::GRIS);
-                $p->escribir($importe, $x + $etiqueta, $y - 11, $ancho - $etiqueta, 'der', false, 8.5, self::TEXTO);
+                $p->escribir($et, $x, $y - 11, $etiqueta, 'izq', false, 8.5, $color);
+                $p->escribir($importe, $x + $etiqueta, $y - 11, $ancho - $etiqueta, 'der', false, 8.5, $color);
                 $y -= 14;
             }
         }
@@ -640,8 +640,7 @@ class CotizacionPdf
 
         $y = $yTop - $pad;
         foreach ($lineas as [$txt, $esTitulo, $tamLinea]) {
-            $p->escribir($txt, $x, $y - $tamLinea, $anchoTexto, 'izq', $esTitulo, $tamLinea,
-                $esTitulo ? $this->cfg['color'] : $color);
+            $p->escribir($txt, $x, $y - $tamLinea, $anchoTexto, 'izq', $esTitulo, $tamLinea, $color);
             $y -= $esTitulo ? $tam * 2 : $tam * 1.3;
         }
     }
