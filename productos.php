@@ -50,6 +50,30 @@ $filtros = [
     'marca_id'     => $_GET['marca_id'] ?? '',
     'estado'       => $_GET['estado'] ?? '',
 ];
+
+// El listado se pagina en pantalla, pero exportar debe llevarse TODO lo que
+// cumple el filtro: exportar sólo la página visible confunde a quien espera
+// las mismas filas que ve en "Listado de productos (N)".
+if ($accion === 'exportar_csv') {
+    $filas = Producto::listarTodos($filtros);
+    header('Content-Type: text/csv; charset=utf-8');
+    header('Content-Disposition: attachment; filename="productos_' . date('Ymd_His') . '.csv"');
+    echo "\xEF\xBB\xBF"; // BOM: para que Excel abra los acentos bien
+    $out = fopen('php://output', 'w');
+    fputcsv($out, ['Código', 'Descripción', 'Categoría', 'Marca', 'Und',
+        'Stock', 'Mínimo', 'P. Compra', 'P. Venta', 'Estado'], ';');
+    foreach ($filas as $p) {
+        fputcsv($out, [
+            $p['codigo'], $p['descripcion'], $p['categoria'] ?? '', $p['marca'] ?? '', $p['unidad'],
+            Vista::num($p['stock_actual']), Vista::num($p['stock_minimo']),
+            Vista::num($p['precio_compra']), Vista::num($p['precio_venta']),
+            (int) $p['estado'] === 1 ? 'Activo' : 'Inactivo',
+        ], ';');
+    }
+    fclose($out);
+    exit;
+}
+
 $datos = Producto::listar($filtros, max(1, (int) ($_GET['p'] ?? 1)));
 
 Vista::render('productos/lista', [

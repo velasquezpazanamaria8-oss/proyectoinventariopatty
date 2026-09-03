@@ -2,7 +2,9 @@
   <div class="tarjeta-cab">
     <h2>Listado de productos (<?= (int) $datos['total'] ?>)</h2>
     <div class="acciones">
-      <button class="btn btn-sm btn-gris" onclick="exportarCSV('tablaProductos','productos')">Exportar CSV</button>
+      <a class="btn btn-sm btn-gris"
+         href="<?= url('productos.php?' . http_build_query(array_merge($filtros, ['a' => 'exportar_csv']))) ?>">
+        Exportar CSV (<?= (int) $datos['total'] ?>)</a>
       <?php if (Auth::puede('productos.gestionar')): ?>
         <a class="btn btn-sm btn-verde" href="<?= url('productos_importar.php') ?>">Importar Excel</a>
         <a class="btn btn-sm" href="<?= url('productos.php?a=form') ?>">+ Nuevo producto</a>

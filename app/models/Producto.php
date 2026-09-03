@@ -33,6 +33,24 @@ class Producto
         return ['filas' => $filas, 'total' => $total, 'paginas' => (int) ceil($total / $porPagina), 'pagina' => $pagina];
     }
 
+    /** Todos los productos que cumplen el filtro, sin paginar (para exportar). */
+    public static function listarTodos(array $f = []): array
+    {
+        [$where, $p] = self::filtros($f);
+        return DB::todos(
+            'SELECT pr.*, c.nombre AS categoria, m.nombre AS marca, un.codigo AS unidad,
+                    COALESCE(s.total, 0) AS stock_actual,
+                    COALESCE(s.reservado, 0) AS reservado
+               FROM productos pr
+               LEFT JOIN categorias c  ON c.id  = pr.categoria_id
+               LEFT JOIN marcas     m  ON m.id  = pr.marca_id
+               JOIN      unidades   un ON un.id = pr.unidad_id
+               LEFT JOIN (SELECT producto_id, SUM(cantidad) AS total, SUM(reservado) AS reservado
+                            FROM stock GROUP BY producto_id) s ON s.producto_id = pr.id
+              WHERE ' . $where . '
+              ORDER BY pr.descripcion ASC', $p);
+    }
+
     private static function filtros(array $f): array
     {
         $where = [Empresa::filtro('pr')];
