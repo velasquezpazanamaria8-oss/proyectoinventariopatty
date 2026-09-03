@@ -252,6 +252,15 @@
     input.addEventListener('change', function () {
       var archivo = input.files[0];
       if (!archivo) return;
+
+      // Aviso local antes de subir: así no se espera a que el servidor
+      // rechace algo que ya se sabe que no va a entrar.
+      if (archivo.size > 2 * 1024 * 1024) {
+        estado.textContent = 'Esa imagen pasa de 2 MB. Pruebe con una más liviana.';
+        input.value = '';
+        return;
+      }
+
       estado.textContent = 'Subiendo...';
 
       var token = document.querySelector('#formGuardar input[name="_csrf"]');
@@ -265,8 +274,11 @@
         .then(function (j) {
           if (!j.ok) { estado.textContent = 'Error: ' + j.error; return; }
           b.imagen = j.ruta;
-          estado.textContent = 'Imagen subida.';
           cambio();
+          // Se rehace el panel entero: así aparece el botón "Quitar imagen"
+          // y el aviso de que ya quedó subida, aunque mientras tanto se haya
+          // vuelto a tocar el bloque.
+          if (bloques[sel] === b) verProps();
         })
         .catch(function () { estado.textContent = 'No se pudo subir. Revise su conexión.'; });
     });

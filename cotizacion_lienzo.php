@@ -29,6 +29,27 @@ if (($_GET['a'] ?? '') === 'firma') {
     exit;
 }
 
+// Si lo que llega pasa de `post_max_size`, PHP vacía $_POST y $_FILES enteros
+// y sin avisar por qué: $_POST['a'] deja de existir, la petición no entra a
+// ningún bloque de abajo, y sigue de largo hasta el guardado normal del
+// lienzo, que vería un POST vacío y grabaría el diseño SIN bloques. Se corta
+// aquí antes de que eso pase, tanto para la imagen (AJAX) como para el
+// guardado de todo el lienzo.
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && empty($_POST) && empty($_FILES)
+    && (int) ($_SERVER['CONTENT_LENGTH'] ?? 0) > 0) {
+    $esImagen = str_starts_with($_SERVER['CONTENT_TYPE'] ?? '', 'multipart/form-data');
+    $msg = ($esImagen ? 'La imagen es demasiado grande' : 'Lo que se intentó guardar es demasiado grande')
+        . ' para este servidor (límite actual: ' . ini_get('post_max_size') . ').';
+    if ($esImagen) {
+        http_response_code(413);
+        header('Content-Type: application/json; charset=utf-8');
+        echo json_encode(['ok' => false, 'error' => $msg . ' Pruebe con una imagen más liviana.']);
+        exit;
+    }
+    Sesion::flash('error', $msg);
+    Vista::redirigir('cotizacion_lienzo.php');
+}
+
 // Subida de una imagen de firma desde el lienzo (AJAX): a diferencia del
 // logo, no hay "la" firma de la empresa, sino una por cada bloque que se
 // suba, así que responde con la ruta en vez de redirigir a la pantalla.
