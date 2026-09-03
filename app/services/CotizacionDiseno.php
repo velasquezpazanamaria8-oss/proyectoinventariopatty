@@ -165,6 +165,9 @@ class CotizacionDiseno
                 $n['clave'] = $clave;
             } elseif ($tipo === 'parrafo') {
                 $n['clave'] = ($b['clave'] ?? '') === 'notas' ? 'notas' : 'condiciones';
+                // Fondo opcional: vacío = como antes, sin cuadro detrás del texto.
+                $fondo = (string) ($b['fondo'] ?? '');
+                $n['fondo'] = preg_match('/^#[0-9A-Fa-f]{6}$/', $fondo) ? strtoupper($fondo) : null;
             } elseif ($tipo === 'texto') {
                 $n['texto'] = mb_substr(trim((string) ($b['texto'] ?? '')), 0, 200);
                 if ($n['texto'] === '') continue;      // un texto vacío es un bloque invisible

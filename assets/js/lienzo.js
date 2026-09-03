@@ -145,6 +145,7 @@
       var titulo = rot(b).titulo;
       d.style.fontSize = b.tam + 'px';
       d.style.color = b.color;
+      if (b.fondo) { d.style.background = b.fondo; d.style.padding = '6px'; }
       d.textContent = (titulo ? titulo + String.fromCharCode(10) : '') + t;
     }
     return d;
@@ -222,6 +223,40 @@
     // o deshacer devolvería una letra cada vez.
     i.addEventListener('input', function () { alCambiar(i.value); cambio(clave || null); });
     return i;
+  }
+
+  /** Fondo de color opcional para un bloque de texto del pie (condiciones/notas). */
+  function fondoParrafo(b) {
+    var c = document.createElement('div');
+    c.className = 'campo';
+
+    var chk = document.createElement('label');
+    chk.className = 'lienzo-check';
+    var input = document.createElement('input');
+    input.type = 'checkbox';
+    input.checked = !!b.fondo;
+    chk.appendChild(input);
+    chk.appendChild(document.createTextNode(' Enmarcar con fondo de color'));
+    c.appendChild(chk);
+
+    var color = entrada('color', b.fondo || '#F1F5F9',
+      function (v) { b.fondo = v.toUpperCase(); }, null, agrup('fondo'));
+    color.style.display = b.fondo ? '' : 'none';
+    color.style.marginTop = '6px';
+    c.appendChild(color);
+
+    input.addEventListener('change', function () {
+      if (input.checked) {
+        b.fondo = color.value.toUpperCase();
+        color.style.display = '';
+      } else {
+        b.fondo = null;
+        color.style.display = 'none';
+      }
+      cambio();
+    });
+
+    return c;
   }
 
   /**
@@ -378,6 +413,10 @@
 
     props.appendChild(campo('Color', entrada('color', b.color,
       function (v) { b.color = v.toUpperCase(); }, null, agrup('color'))));
+
+    if (b.tipo === 'parrafo') {
+      props.appendChild(fondoParrafo(b));
+    }
 
     if (b.tipo === 'dato' || b.tipo === 'texto') {
       var neg = document.createElement('label');

@@ -573,7 +573,6 @@ class CotizacionPdf
     private function bloqueParrafo(array $b, float $yTop): void
     {
         $clave = $b['clave'];
-        $x = $b['x'];
         $ancho = $b['w'];
         $tam = $b['tam'];
         $color = $b['color'];
@@ -583,18 +582,41 @@ class CotizacionPdf
             return;                            // sin condiciones no hay título suelto
         }
         $p = $this->pdf;
-        $y = $yTop;
 
+        // Con fondo se deja aire alrededor del texto; sin fondo, igual que
+        // siempre, pegado al borde del bloque.
+        $fondo = $b['fondo'] ?? null;
+        $pad = $fondo ? 8.0 : 0.0;
+        $x = $b['x'] + $pad;
+        $anchoTexto = $ancho - $pad * 2;
+
+        // Se arma primero la lista de líneas (con el reparto de ancho ya
+        // resuelto) para saber cuánto va a medir el bloque ANTES de dibujar
+        // el fondo: si no, el cuadro saldría de un tamaño fijo que no
+        // acompaña a un texto más largo o más corto.
+        $lineas = [];
         if ($titulo !== '') {
-            $p->escribir($titulo, $x, $y - $tam, $ancho, 'izq', true,
-                $tam + 1, $this->cfg['color']);
-            $y -= $tam * 2;
+            $lineas[] = [$titulo, true, $tam + 1];
         }
         foreach (preg_split('/\r\n|\r|\n/', $texto) as $linea) {
-            foreach ($p->repartir($linea, $ancho, $tam) as $trozo) {
-                $p->escribir($trozo, $x, $y - $tam, $ancho, 'izq', false, $tam, $color);
-                $y -= $tam * 1.3;
+            foreach ($p->repartir($linea, $anchoTexto, $tam) as $trozo) {
+                $lineas[] = [$trozo, false, $tam];
             }
+        }
+
+        $altoTotal = $pad * 2;
+        foreach ($lineas as [, $esTitulo]) {
+            $altoTotal += $esTitulo ? $tam * 2 : $tam * 1.3;
+        }
+        if ($fondo) {
+            $p->caja($b['x'], $yTop, $ancho, $altoTotal, $fondo);
+        }
+
+        $y = $yTop - $pad;
+        foreach ($lineas as [$txt, $esTitulo, $tamLinea]) {
+            $p->escribir($txt, $x, $y - $tamLinea, $anchoTexto, 'izq', $esTitulo, $tamLinea,
+                $esTitulo ? $this->cfg['color'] : $color);
+            $y -= $esTitulo ? $tam * 2 : $tam * 1.3;
         }
     }
 }
