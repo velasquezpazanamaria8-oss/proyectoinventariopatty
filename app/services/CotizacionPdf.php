@@ -431,6 +431,10 @@ class CotizacionPdf
                 $this->bloqueFirmas($b, $y);
                 break;
 
+            case 'firma1':
+                $this->bloqueFirma1($b, $y);
+                break;
+
             case 'parrafo':
                 $this->bloqueParrafo($b, $y);
                 break;
@@ -526,6 +530,34 @@ class CotizacionPdf
         foreach ([[$x, $izq], [$x + $ancho - $anchoFirma, $der]] as [$xf, $nombre]) {
             $p->linea($xf, $yTop, $anchoFirma, self::LINEA, 0.8);
             $p->escribir((string) $nombre, $xf, $yTop - 11, $anchoFirma, 'centro', false, 8, $color);
+        }
+    }
+
+    /**
+     * Una sola firma, con la imagen escaneada arriba de la línea si se subió
+     * una; si no, queda la línea en blanco para firmar a mano, igual que las
+     * demás.
+     */
+    private function bloqueFirma1(array $b, float $yTop): void
+    {
+        $p = $this->pdf;
+        $x = $b['x'];
+        $ancho = $b['w'];
+        $color = $b['color'];
+        $nombre = $b['textos']['nombre'] ?? '';
+
+        $altoImg = max(0, $b['h'] - 24);   // deja sitio para la línea y el nombre
+        if (!empty($b['imagen'])) {
+            $abs = BASE_PATH . '/' . $b['imagen'];
+            if (is_file($abs)) {
+                $p->imagen($abs, $x + $ancho / 2 - 60, $yTop, 120, $altoImg);
+            }
+        }
+
+        $yLinea = $yTop - $altoImg - 6;
+        $p->linea($x, $yLinea, $ancho, self::LINEA, 0.8);
+        if ($nombre !== '') {
+            $p->escribir($nombre, $x, $yLinea - 11, $ancho, 'centro', false, 8, $color);
         }
     }
 

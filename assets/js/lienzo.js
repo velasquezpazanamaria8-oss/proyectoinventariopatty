@@ -56,6 +56,7 @@
       case 'cliente': return 'ficha del cliente';
       case 'totales': return 'totales';
       case 'firmas': return 'firmas';
+      case 'firma1': return 'firma';
       case 'parrafo': return b.clave === 'notas' ? 'notas' : 'condiciones';
     }
     return b.tipo;
@@ -128,6 +129,16 @@
       var rf = rot(b);
       d.appendChild(trozo('bl-firma', rf.izq || S.firmaIzq));
       d.appendChild(trozo('bl-firma der', rf.der || S.firmaDer));
+    } else if (b.tipo === 'firma1') {
+      var rf1 = rot(b);
+      d.style.height = b.h + 'px';
+      if (b.imagen) {
+        var imgF = document.createElement('img');
+        imgF.src = S.verFirma + encodeURIComponent(b.imagen);
+        imgF.className = 'bl-firma-img';
+        d.appendChild(imgF);
+      }
+      d.appendChild(trozo('bl-firma', rf1.nombre || '(sin nombre)'));
     } else if (b.tipo === 'parrafo') {
       var t = (b.clave === 'notas' ? S.notas : S.condiciones)
         || '(sin texto: se escribe en las opciones)';
@@ -213,6 +224,71 @@
     return i;
   }
 
+  /**
+   * Subir (o quitar) la foto de la firma de este bloque.
+   *
+   * Va aparte del resto del formulario: un archivo no cabe en el JSON de
+   * bloques que se manda al guardar, así que se sube al toque por su cuenta y
+   * lo que queda en el bloque es sólo la ruta que devuelve el servidor.
+   */
+  function subirFirma(b) {
+    var c = document.createElement('div');
+    c.className = 'campo';
+    c.innerHTML = '<label>Imagen de la firma (foto o escaneo)</label>';
+
+    var estado = document.createElement('div');
+    estado.className = 'lienzo-nota';
+    estado.textContent = b.imagen ? 'Ya tiene una imagen subida.' : 'Sin imagen: queda la línea en blanco para firmar a mano.';
+    c.appendChild(estado);
+
+    var fila = document.createElement('div');
+    fila.style.display = 'flex';
+    fila.style.gap = '8px';
+    fila.style.marginTop = '4px';
+
+    var input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/*';
+    input.addEventListener('change', function () {
+      var archivo = input.files[0];
+      if (!archivo) return;
+      estado.textContent = 'Subiendo...';
+
+      var token = document.querySelector('#formGuardar input[name="_csrf"]');
+      var datos = new FormData();
+      datos.append('_csrf', token ? token.value : '');
+      datos.append('a', 'subir_firma');
+      datos.append('imagen', archivo);
+
+      fetch(S.subirFirma, { method: 'POST', body: datos })
+        .then(function (r) { return r.json(); })
+        .then(function (j) {
+          if (!j.ok) { estado.textContent = 'Error: ' + j.error; return; }
+          b.imagen = j.ruta;
+          estado.textContent = 'Imagen subida.';
+          cambio();
+        })
+        .catch(function () { estado.textContent = 'No se pudo subir. Revise su conexión.'; });
+    });
+    fila.appendChild(input);
+
+    if (b.imagen) {
+      var quitar = document.createElement('button');
+      quitar.type = 'button';
+      quitar.className = 'btn btn-sm btn-gris';
+      quitar.textContent = 'Quitar imagen';
+      quitar.addEventListener('click', function () {
+        b.imagen = null;
+        estado.textContent = 'Sin imagen: queda la línea en blanco para firmar a mano.';
+        cambio();
+        verProps();
+      });
+      fila.appendChild(quitar);
+    }
+    c.appendChild(fila);
+    return c;
+  }
+
   var propsCampos = {};
 
   /** Clave con la que se agrupan los cambios seguidos sobre un mismo campo. */
@@ -258,11 +334,15 @@
     rejilla.appendChild(campo('X', propsCampos.x));
     rejilla.appendChild(campo('Y', propsCampos.y));
     rejilla.appendChild(campo('Ancho', propsCampos.w));
-    if (b.tipo === 'caja' || b.tipo === 'logo') {
+    if (b.tipo === 'caja' || b.tipo === 'logo' || b.tipo === 'firma1') {
       propsCampos.h = entrada('number', b.h, function (v) { b.h = +v; }, null, agrup('h'));
       rejilla.appendChild(campo('Alto', propsCampos.h));
     }
     props.appendChild(rejilla);
+
+    if (b.tipo === 'firma1') {
+      props.appendChild(subirFirma(b));
+    }
 
     if (b.tipo === 'dato' || b.tipo === 'texto' || b.tipo === 'parrafo') {
       var r2 = document.createElement('div');
@@ -331,7 +411,7 @@
   function zonasDe(tipo) {
     if (tipo === 'dato') return ['cabecera', 'pie'];
     if (tipo === 'cliente') return ['cabecera'];
-    if (tipo === 'totales' || tipo === 'firmas' || tipo === 'parrafo') return ['pie'];
+    if (tipo === 'totales' || tipo === 'firmas' || tipo === 'firma1' || tipo === 'parrafo') return ['pie'];
     return ['cabecera', 'pie'];
   }
 
@@ -419,12 +499,14 @@
       var zona = zonasDe(tipo)[0];
       var b = {
         tipo: tipo, zona: zona, clave: btn.dataset.clave || (tipo === 'parrafo' ? 'condiciones' : ''),
-        x: MARGEN, y: 10, w: tipo === 'totales' ? 190 : 200, h: tipo === 'logo' ? 58 : 20,
+        x: MARGEN, y: 10, w: tipo === 'totales' ? 190 : (tipo === 'firma1' ? 160 : 200),
+        h: tipo === 'logo' ? 58 : (tipo === 'firma1' ? 50 : 20),
         tam: 9, negrita: 0, alin: 'izq', color: tipo === 'caja' ? S.color : '#1F2A36'
       };
       if (tipo === 'texto') b.texto = 'Texto';
-      if (tipo === 'cliente' || tipo === 'totales' || tipo === 'firmas') b.color = S.color;
+      if (tipo === 'cliente' || tipo === 'totales' || tipo === 'firmas' || tipo === 'firma1') b.color = S.color;
       if (tipo === 'firmas' || tipo === 'cliente') b.w = ANCHO_HOJA - MARGEN * 2;
+      if (tipo === 'firma1') { b.imagen = null; }
 
       // Cae en un hueco libre y no encima del último: dos bloques superpuestos
       // al añadirlos parecen uno solo y se arrastra el que no es.

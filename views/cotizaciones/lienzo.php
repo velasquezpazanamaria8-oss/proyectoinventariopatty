@@ -27,6 +27,10 @@ $estado = [
     ],
     'rotulos'      => CotizacionDiseno::ROTULOS,
     'previa'       => url('cotizacion_previa.php'),
+    // Subir y ver la foto de una firma van al mismo controlador del lienzo,
+    // por eso no hace falta una acción propia: sólo estas dos URL.
+    'subirFirma'   => url('cotizacion_lienzo.php'),
+    'verFirma'     => url('cotizacion_lienzo.php?a=firma&r='),
 ];
 ?>
 
@@ -74,6 +78,19 @@ $estado = [
 
   <aside class="lienzo-panel">
     <div class="tarjeta">
+      <div class="tarjeta-cab"><h2>Agregar bloque</h2></div>
+      <div class="tarjeta-cuerpo lienzo-paleta">
+        <p class="lienzo-nota">Toque uno para ponerlo en la hoja. Incluye firmas, recuadros y líneas.</p>
+        <?php foreach ($piezas as $tipo => $pieza): ?>
+          <button type="button" class="ficha ficha-pieza" data-nuevo="<?= e($tipo) ?>">
+            <?= e($pieza['nombre']) ?>
+            <small><?= implode(' / ', $pieza['zonas']) ?></small>
+          </button>
+        <?php endforeach; ?>
+      </div>
+    </div>
+
+    <div class="tarjeta">
       <div class="tarjeta-cab"><h2>Datos</h2></div>
       <div class="tarjeta-cuerpo lienzo-paleta">
         <p class="lienzo-nota">Toque uno para ponerlo en la hoja.</p>
@@ -84,14 +101,6 @@ $estado = [
               <?= e($etiqueta) ?>
             </button>
           <?php endforeach; ?>
-        <?php endforeach; ?>
-
-        <h4>Piezas</h4>
-        <?php foreach ($piezas as $tipo => $pieza): ?>
-          <button type="button" class="ficha ficha-pieza" data-nuevo="<?= e($tipo) ?>">
-            <?= e($pieza['nombre']) ?>
-            <small><?= implode(' / ', $pieza['zonas']) ?></small>
-          </button>
         <?php endforeach; ?>
       </div>
     </div>

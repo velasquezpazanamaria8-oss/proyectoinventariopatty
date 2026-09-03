@@ -57,7 +57,8 @@ class CotizacionDiseno
         'linea'   => ['nombre' => 'Línea',             'zonas' => ['cabecera', 'pie']],
         'cliente' => ['nombre' => 'Ficha del cliente', 'zonas' => ['cabecera']],
         'totales' => ['nombre' => 'Totales',           'zonas' => ['pie']],
-        'firmas'  => ['nombre' => 'Firmas',            'zonas' => ['pie']],
+        'firmas'  => ['nombre' => 'Firmas (dos, izq/der)', 'zonas' => ['pie']],
+        'firma1'  => ['nombre' => 'Firma (una, con imagen opcional)', 'zonas' => ['pie']],
         'parrafo' => ['nombre' => 'Texto del pie',     'zonas' => ['pie']],
     ];
 
@@ -87,12 +88,15 @@ class CotizacionDiseno
             'izq' => ['Firma izquierda', ''],
             'der' => ['Firma derecha', ''],
         ],
+        'firma1' => [
+            'nombre' => ['Nombre debajo de la línea', ''],
+        ],
         'parrafo' => [
             'titulo' => ['Título encima del texto', ''],
         ],
     ];
 
-    private const TIPOS = ['dato', 'texto', 'logo', 'caja', 'linea', 'cliente', 'totales', 'firmas', 'parrafo'];
+    private const TIPOS = ['dato', 'texto', 'logo', 'caja', 'linea', 'cliente', 'totales', 'firmas', 'firma1', 'parrafo'];
     private const ZONAS = ['cabecera', 'pie'];
     private const ALINS = ['izq', 'centro', 'der'];
 
@@ -166,6 +170,14 @@ class CotizacionDiseno
                 if ($n['texto'] === '') continue;      // un texto vacío es un bloque invisible
             }
 
+            if ($tipo === 'firma1') {
+                // Sólo se acepta una ruta que de verdad viva en storage/firmas
+                // y que ya exista en disco: lo que venga del cliente aquí es
+                // JSON suelto, no algo que el generador de PDF deba fiarse a ciegas.
+                $ruta = (string) ($b['imagen'] ?? '');
+                $n['imagen'] = self::rutaFirmaValida($ruta) ? $ruta : null;
+            }
+
             if (isset(self::ROTULOS[$tipo])) {
                 $dados = is_array($b['textos'] ?? null) ? $b['textos'] : [];
                 $n['textos'] = [];
@@ -189,6 +201,81 @@ class CotizacionDiseno
     private static function acotar($v, float $min, float $max): float
     {
         return round(max($min, min($max, (float) $v)), 1);
+    }
+
+    /** ¿Esta ruta es una imagen de firma que de verdad está en disco, en su carpeta? */
+    private static function rutaFirmaValida(string $ruta): bool
+    {
+        if ($ruta === '') return false;
+        $abs  = realpath(BASE_PATH . '/' . $ruta);
+        $raiz = realpath(BASE_PATH . '/storage/firmas');
+        return $abs && $raiz && str_starts_with($abs, $raiz) && is_file($abs);
+    }
+
+    /**
+     * Guarda la foto de una firma escaneada, lista para el PDF.
+     *
+     * Mismo tratamiento que el logo (JPEG sobre fondo blanco, ver
+     * CotizacionConfig::guardarLogo): aquí no hay "el" logo de la empresa,
+     * sino una imagen por cada bloque de firma que se suba, así que cada una
+     * recibe un nombre propio en vez de pisar siempre el mismo archivo.
+     */
+    public static function guardarImagenFirma(array $archivo): string
+    {
+        if (($archivo['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK || !is_uploaded_file($archivo['tmp_name'])) {
+            throw new RuntimeException('No se pudo recibir la imagen. Inténtelo de nuevo.');
+        }
+        if ($archivo['size'] > 2 * 1024 * 1024) {
+            throw new RuntimeException('La imagen pasa de 2 MB.');
+        }
+
+        $info = @getimagesize($archivo['tmp_name']);
+        if (!$info) {
+            throw new RuntimeException('Ese archivo no es una imagen.');
+        }
+        [$ancho, $alto, $tipo] = $info;
+
+        $dir = BASE_PATH . '/storage/firmas';
+        if (!is_dir($dir)) {
+            @mkdir($dir, 0775, true);
+        }
+        $nombre = 'empresa-' . Empresa::id() . '-' . bin2hex(random_bytes(6)) . '.jpg';
+        $destino = $dir . '/' . $nombre;
+
+        if (!extension_loaded('gd')) {
+            if ($tipo !== IMAGETYPE_JPEG) {
+                throw new RuntimeException('Este servidor no puede convertir imágenes: '
+                    . 'suba la firma en formato JPG.');
+            }
+            copy($archivo['tmp_name'], $destino);
+            return 'storage/firmas/' . $nombre;
+        }
+
+        $origen = match ($tipo) {
+            IMAGETYPE_JPEG => @imagecreatefromjpeg($archivo['tmp_name']),
+            IMAGETYPE_PNG  => @imagecreatefrompng($archivo['tmp_name']),
+            IMAGETYPE_GIF  => @imagecreatefromgif($archivo['tmp_name']),
+            IMAGETYPE_WEBP => @imagecreatefromwebp($archivo['tmp_name']),
+            default        => null,
+        };
+        if (!$origen) {
+            throw new RuntimeException('No se pudo leer la imagen. Pruebe con un JPG o un PNG.');
+        }
+
+        // Una firma no necesita más resolución que un logo: se acota igual.
+        $max = 500;
+        $escala = min(1, $max / max($ancho, $alto));
+        $nAncho = max(1, (int) round($ancho * $escala));
+        $nAlto  = max(1, (int) round($alto * $escala));
+
+        $lienzo = imagecreatetruecolor($nAncho, $nAlto);
+        imagefill($lienzo, 0, 0, imagecolorallocate($lienzo, 255, 255, 255));
+        imagecopyresampled($lienzo, $origen, 0, 0, 0, 0, $nAncho, $nAlto, $ancho, $alto);
+        imagejpeg($lienzo, $destino, 88);
+        imagedestroy($lienzo);
+        imagedestroy($origen);
+
+        return 'storage/firmas/' . $nombre;
     }
 
     /**

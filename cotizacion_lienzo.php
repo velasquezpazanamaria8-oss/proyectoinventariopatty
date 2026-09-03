@@ -10,6 +10,49 @@
 require_once __DIR__ . '/bootstrap.php';
 Auth::requierePermiso('cotizaciones.gestionar');
 
+// La foto de una firma escaneada vive en storage/, cerrado al navegador por
+// .htaccess (igual que el logo): se sirve desde aquí, comprobando que la
+// ruta pedida sea de verdad una imagen de firma y no cualquier otra cosa.
+if (($_GET['a'] ?? '') === 'firma') {
+    $ruta = (string) ($_GET['r'] ?? '');
+    $abs  = $ruta !== '' ? realpath(BASE_PATH . '/' . $ruta) : false;
+    $raiz = realpath(BASE_PATH . '/storage/firmas');
+
+    if (!$abs || !$raiz || !str_starts_with($abs, $raiz) || !is_file($abs)) {
+        http_response_code(404);
+        exit;
+    }
+    header('Content-Type: image/jpeg');
+    header('Content-Length: ' . filesize($abs));
+    header('X-Content-Type-Options: nosniff');
+    readfile($abs);
+    exit;
+}
+
+// Subida de una imagen de firma desde el lienzo (AJAX): a diferencia del
+// logo, no hay "la" firma de la empresa, sino una por cada bloque que se
+// suba, así que responde con la ruta en vez de redirigir a la pantalla.
+if (($_SERVER['REQUEST_METHOD'] === 'POST') && (($_POST['a'] ?? '') === 'subir_firma')) {
+    header('Content-Type: application/json; charset=utf-8');
+    if (!Csrf::valido($_POST['_csrf'] ?? null)) {
+        http_response_code(419);
+        echo json_encode(['ok' => false, 'error' => 'La sesión del formulario expiró. Recargue la página.']);
+        exit;
+    }
+    try {
+        $archivo = $_FILES['imagen'] ?? null;
+        if (!$archivo) {
+            throw new RuntimeException('No llegó ninguna imagen.');
+        }
+        $ruta = CotizacionDiseno::guardarImagenFirma($archivo);
+        echo json_encode(['ok' => true, 'ruta' => $ruta,
+            'url' => url('cotizacion_lienzo.php?a=firma&r=' . urlencode($ruta))]);
+    } catch (Throwable $e) {
+        echo json_encode(['ok' => false, 'error' => $e->getMessage()]);
+    }
+    exit;
+}
+
 $cfg = CotizacionConfig::actual();
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {

@@ -19,6 +19,11 @@ storage/cpe/*
 storage/logos/*
 !storage/logos/.gitkeep
 
+# Fotos de firmas subidas desde el lienzo de cotización. Mismo criterio que
+# los logos: datos de cada instalación, no del código.
+storage/firmas/*
+!storage/firmas/.gitkeep
+
 # Volcado de datos de demostración (se regenera con database/exportar_demo.php)
 database/kardex_demo.sql
 

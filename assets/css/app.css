@@ -343,6 +343,11 @@ table.tabla tr.sin-stock td{color:var(--suave)}
 .bl-fuerte { display: block; color: #fff; font-weight: 700; padding: 2px 4px; }
 .bl-firmas { display: flex; justify-content: space-between; border: 0; border-top: 1px solid #CBD5E1; }
 .bl-firma.der { text-align: right; }
+.bl-firma1 {
+  display: flex; flex-direction: column; align-items: center; justify-content: flex-end;
+  border: 0; border-top: 1px solid #CBD5E1; text-align: center; gap: 2px;
+}
+.bl-firma-img { max-width: 90%; max-height: 70%; object-fit: contain; }
 .bl-parrafo { font-family: Arial, Helvetica, sans-serif; }
 
 .tirador {
