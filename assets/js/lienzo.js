@@ -465,7 +465,7 @@
 
     if (arrastre.tirar) {
       b.w = Math.max(8, Math.min(ANCHO_HOJA, encajar(arrastre.bw + dx)));
-      if (b.tipo === 'caja' || b.tipo === 'logo') {
+      if (b.tipo === 'caja' || b.tipo === 'logo' || b.tipo === 'firma1') {
         b.h = Math.max(2, encajar(arrastre.bh + dy));
       }
     } else {

@@ -549,8 +549,16 @@ class CotizacionPdf
         $altoImg = max(0, $b['h'] - 24);   // deja sitio para la línea y el nombre
         if (!empty($b['imagen'])) {
             $abs = BASE_PATH . '/' . $b['imagen'];
-            if (is_file($abs)) {
-                $p->imagen($abs, $x + $ancho / 2 - 60, $yTop, 120, $altoImg);
+            $info = is_file($abs) ? @getimagesize($abs) : false;
+            if ($info) {
+                // Se calcula el ancho real que va a ocupar (respetando su
+                // proporción) para poder centrarla; el "Ancho" y "Alto" del
+                // bloque son el máximo que puede llegar a ocupar, no un
+                // tamaño fijo, así que agrandar el bloque agranda la imagen.
+                [$px, $py] = $info;
+                $escala = min($ancho / $px, $altoImg / $py);
+                $wReal = $px * $escala;
+                $p->imagen($abs, $x + ($ancho - $wReal) / 2, $yTop, $ancho, $altoImg);
             }
         }
 
