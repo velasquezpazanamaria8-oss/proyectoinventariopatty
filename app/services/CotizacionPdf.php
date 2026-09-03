@@ -446,9 +446,23 @@ class CotizacionPdf
     private function textoLibre(string $txt, array $b, float $yTop): void
     {
         $p = $this->pdf;
-        $y = $yTop - $b['tam'] * 0.85;        // del borde superior a la línea base
-        foreach ($p->repartir($txt, $b['w'], $b['tam']) as $linea) {
-            $p->escribir($linea, $b['x'], $y, $b['w'], $b['alin'],
+
+        // Con fondo se deja aire alrededor del texto y el cuadro se mide
+        // según cuántas líneas ocupa de verdad, igual que en bloqueParrafo().
+        $fondo = $b['fondo'] ?? null;
+        $pad = $fondo ? 5.0 : 0.0;
+        $x = $b['x'] + $pad;
+        $ancho = $b['w'] - $pad * 2;
+
+        $lineas = $p->repartir($txt, $ancho, $b['tam']);
+        if ($fondo) {
+            $alto = count($lineas) * $b['tam'] * 1.2 + $pad * 2;
+            $p->caja($b['x'], $yTop, $b['w'], $alto, $fondo);
+        }
+
+        $y = $yTop - $pad - $b['tam'] * 0.85; // del borde superior a la línea base
+        foreach ($lineas as $linea) {
+            $p->escribir($linea, $x, $y, $ancho, $b['alin'],
                 (bool) $b['negrita'], $b['tam'], $b['color']);
             $y -= $b['tam'] * 1.2;
         }
@@ -462,7 +476,9 @@ class CotizacionPdf
         $color = $b['color'];
         $r = $b['textos'];
 
-        $p->caja($x, $yTop, $ancho, 15, '#F1F5F9');
+        // La franja del rótulo lleva un fondo claro de fábrica; si se eligió
+        // uno propio, se usa ése en vez del gris de siempre.
+        $p->caja($x, $yTop, $ancho, 15, $b['fondo'] ?? '#F1F5F9');
         $p->marco($x, $yTop, $ancho, 62, self::LINEA);
         if ($r['rotulo'] !== '') {
             $p->escribir($r['rotulo'], $x, $yTop - 11, $ancho, 'izq', true, 8.5, $color);
@@ -528,6 +544,12 @@ class CotizacionPdf
         $izq = $b['textos']['izq'] ?: ($this->cfg['firma_izq'] ?: $this->emp['razon_social']);
         $der = $b['textos']['der'] ?: ($this->cfg['firma_der'] ?: 'CLIENTE');
 
+        if (!empty($b['fondo'])) {
+            // No hay un "Alto" configurable en esta pieza: se deja el aire
+            // justo para la línea y el nombre debajo.
+            $p->caja($x, $yTop + 6, $ancho, 26, $b['fondo']);
+        }
+
         foreach ([[$x, $izq], [$x + $ancho - $anchoFirma, $der]] as [$xf, $nombre]) {
             $p->linea($xf, $yTop, $anchoFirma, self::LINEA, 0.8);
             $p->escribir((string) $nombre, $xf, $yTop - 11, $anchoFirma, 'centro', false, 8, $color);
@@ -546,6 +568,10 @@ class CotizacionPdf
         $ancho = $b['w'];
         $color = $b['color'];
         $nombre = $b['textos']['nombre'] ?? '';
+
+        if (!empty($b['fondo'])) {
+            $p->caja($x, $yTop, $ancho, $b['h'], $b['fondo']);
+        }
 
         $altoImg = max(0, $b['h'] - 24);   // deja sitio para la línea y el nombre
         if (!empty($b['imagen'])) {

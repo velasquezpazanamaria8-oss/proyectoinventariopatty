@@ -22,6 +22,9 @@
   var ALTO_PIE = 320;          // lo que se enseña de la zona de pie
   var REJILLA = 5;             // el arrastre encaja en puntos de 5 en 5
 
+  // Piezas que aceptan un fondo de color opcional (ver CotizacionDiseno::CON_FONDO).
+  var CON_FONDO = ['dato', 'texto', 'parrafo', 'firmas', 'firma1', 'cliente'];
+
   var bloques = S.bloques.slice();
   var altoCabecera = S.altoCabecera;
   var sel = -1;                // índice del bloque seleccionado
@@ -88,6 +91,10 @@
   function cuerpo(b) {
     var d = document.createElement('div');
     d.className = 'bl-cuerpo bl-' + b.tipo;
+    if (b.fondo && CON_FONDO.indexOf(b.tipo) !== -1) {
+      d.style.background = b.fondo;
+      d.style.padding = '4px';
+    }
 
     if (b.tipo === 'dato' || b.tipo === 'texto') {
       d.textContent = texto(b);
@@ -145,7 +152,6 @@
       var titulo = rot(b).titulo;
       d.style.fontSize = b.tam + 'px';
       d.style.color = b.color;
-      if (b.fondo) { d.style.background = b.fondo; d.style.padding = '6px'; }
       d.textContent = (titulo ? titulo + String.fromCharCode(10) : '') + t;
     }
     return d;
@@ -225,8 +231,8 @@
     return i;
   }
 
-  /** Fondo de color opcional para un bloque de texto del pie (condiciones/notas). */
-  function fondoParrafo(b) {
+  /** Fondo de color opcional para "enmarcar" un bloque (ver CON_FONDO). */
+  function controlFondo(b) {
     var c = document.createElement('div');
     c.className = 'campo';
 
@@ -414,8 +420,8 @@
     props.appendChild(campo('Color', entrada('color', b.color,
       function (v) { b.color = v.toUpperCase(); }, null, agrup('color'))));
 
-    if (b.tipo === 'parrafo') {
-      props.appendChild(fondoParrafo(b));
+    if (CON_FONDO.indexOf(b.tipo) !== -1) {
+      props.appendChild(controlFondo(b));
     }
 
     if (b.tipo === 'dato' || b.tipo === 'texto') {

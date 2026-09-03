@@ -97,6 +97,9 @@ class CotizacionDiseno
     ];
 
     private const TIPOS = ['dato', 'texto', 'logo', 'caja', 'linea', 'cliente', 'totales', 'firmas', 'firma1', 'parrafo'];
+
+    /** Piezas que aceptan un fondo de color opcional para "enmarcarlas". */
+    private const CON_FONDO = ['dato', 'texto', 'parrafo', 'firmas', 'firma1', 'cliente'];
     private const ZONAS = ['cabecera', 'pie'];
     private const ALINS = ['izq', 'centro', 'der'];
 
@@ -165,12 +168,17 @@ class CotizacionDiseno
                 $n['clave'] = $clave;
             } elseif ($tipo === 'parrafo') {
                 $n['clave'] = ($b['clave'] ?? '') === 'notas' ? 'notas' : 'condiciones';
-                // Fondo opcional: vacío = como antes, sin cuadro detrás del texto.
-                $fondo = (string) ($b['fondo'] ?? '');
-                $n['fondo'] = preg_match('/^#[0-9A-Fa-f]{6}$/', $fondo) ? strtoupper($fondo) : null;
             } elseif ($tipo === 'texto') {
                 $n['texto'] = mb_substr(trim((string) ($b['texto'] ?? '')), 0, 200);
                 if ($n['texto'] === '') continue;      // un texto vacío es un bloque invisible
+            }
+
+            // Fondo opcional, para "enmarcar" el bloque con un color detrás.
+            // Vacío = como siempre, sin cuadro. No aplica a 'caja' (su color YA
+            // es el fondo) ni a 'linea' (no tiene área que rellenar).
+            if (in_array($tipo, self::CON_FONDO, true)) {
+                $fondo = (string) ($b['fondo'] ?? '');
+                $n['fondo'] = preg_match('/^#[0-9A-Fa-f]{6}$/', $fondo) ? strtoupper($fondo) : null;
             }
 
             if ($tipo === 'firma1') {
