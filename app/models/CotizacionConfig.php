@@ -171,12 +171,24 @@ class CotizacionConfig
             ? CotizacionDiseno::normalizar($d['bloques'])
             : $guardada['bloques'];
 
+        // El lienzo también deja editar el texto de condiciones/notas desde
+        // el propio bloque, sin pasar por el formulario simple: si vino,
+        // manda sobre lo guardado (igual que ya pasa con bloques y alto).
+        if (array_key_exists('condiciones', $d)) {
+            $cfg['condiciones'] = trim((string) $d['condiciones']) ?: null;
+        }
+        if (array_key_exists('notas', $d)) {
+            $cfg['notas'] = trim((string) $d['notas']) ?: null;
+        }
+
         return $cfg;
     }
 
     /** Guarda lo que se compuso en el lienzo. No toca las opciones simples. */
-    public static function guardarDiseno(array $bloques, int $altoCabecera, bool $libre): void
-    {
+    public static function guardarDiseno(
+        array $bloques, int $altoCabecera, bool $libre,
+        ?string $condiciones = null, ?string $notas = null
+    ): void {
         $empresaId = Empresa::id();
         $datos = [
             'modo'           => $libre ? 'LIBRE' : 'SIMPLE',
@@ -184,6 +196,10 @@ class CotizacionConfig
             'alto_cabecera'  => max(80, min(600, $altoCabecera)),
             'actualizado_en' => date('Y-m-d H:i:s'),
         ];
+        // Vienen siempre desde el lienzo (aunque no se hayan tocado, con lo
+        // que ya había), así que sí se guardan tal cual llegan.
+        if ($condiciones !== null) $datos['condiciones'] = trim($condiciones) ?: null;
+        if ($notas !== null)       $datos['notas']       = trim($notas) ?: null;
 
         if (DB::valor('SELECT empresa_id FROM cotizacion_config WHERE empresa_id = :e', [':e' => $empresaId])) {
             DB::actualizar('cotizacion_config', $datos, 'empresa_id = :e', [':e' => $empresaId]);

@@ -58,6 +58,8 @@ $estado = [
       <?= Csrf::campo() ?>
       <input type="hidden" name="bloques" id="campoBloques">
       <input type="hidden" name="alto_cabecera" id="campoAlto">
+      <input type="hidden" name="condiciones" id="campoCondiciones">
+      <input type="hidden" name="notas" id="campoNotas">
       <label class="lienzo-usar">
         <input type="checkbox" name="libre" value="1" id="campoLibre" <?= $libre ? 'checked' : '' ?>>
         <span>Usar este diseño</span>

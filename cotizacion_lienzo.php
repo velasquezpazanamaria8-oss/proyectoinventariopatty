@@ -93,7 +93,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             CotizacionConfig::guardarDiseno(
                 is_array($bloques) ? $bloques : [],
                 (int) ($_POST['alto_cabecera'] ?? 250),
-                !empty($_POST['libre']));
+                !empty($_POST['libre']),
+                array_key_exists('condiciones', $_POST) ? (string) $_POST['condiciones'] : null,
+                array_key_exists('notas', $_POST) ? (string) $_POST['notas'] : null);
             Sesion::flash('ok', !empty($_POST['libre'])
                 ? 'Diseño guardado. Las cotizaciones de esta empresa ya salen con él.'
                 : 'Diseño guardado. Sigue emitiéndose con el modo simple hasta que marque «usar este diseño».');

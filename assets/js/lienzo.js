@@ -185,6 +185,8 @@
 
     document.getElementById('campoBloques').value = JSON.stringify(bloques);
     document.getElementById('campoAlto').value = altoCabecera;
+    document.getElementById('campoCondiciones').value = S.condiciones || '';
+    document.getElementById('campoNotas').value = S.notas || '';
     refrescarProps();
   }
 
@@ -364,6 +366,21 @@
     if (b.tipo === 'texto') {
       props.appendChild(campo('Texto', entrada('text', b.texto || '',
         function (v) { b.texto = v; }, { maxlength: 200 }, agrup('texto'))));
+    }
+
+    // El texto de condiciones/notas es de la empresa, no del bloque (los dos
+    // sitios donde se coloca comparten el mismo párrafo), pero se edita aquí
+    // mismo para no tener que ir a la otra pantalla.
+    if (b.tipo === 'parrafo') {
+      var ta = document.createElement('textarea');
+      ta.rows = 5;
+      ta.maxLength = 2000;
+      ta.value = b.clave === 'notas' ? (S.notas || '') : (S.condiciones || '');
+      ta.addEventListener('input', function () {
+        if (b.clave === 'notas') S.notas = ta.value; else S.condiciones = ta.value;
+        cambio('parrafoTexto:' + b.clave);
+      });
+      props.appendChild(campo('Texto (una línea por renglón)', ta));
     }
 
     // Los rótulos que imprime la pieza —«CLIENTE», «SUBTOTAL»— se escriben
@@ -717,7 +734,8 @@
 
     var token = document.querySelector('#formGuardar input[name="_csrf"]');
     [['_csrf', token ? token.value : ''], ['modo', 'LIBRE'],
-     ['alto_cabecera', altoCabecera], ['bloques', JSON.stringify(bloques)]
+     ['alto_cabecera', altoCabecera], ['bloques', JSON.stringify(bloques)],
+     ['condiciones', S.condiciones || ''], ['notas', S.notas || '']
     ].forEach(function (par) {
       var i = document.createElement('input');
       i.type = 'hidden'; i.name = par[0]; i.value = par[1];
