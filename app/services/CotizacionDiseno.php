@@ -78,6 +78,7 @@ class CotizacionDiseno
             'direccion' => ['Etiqueta de la dirección', 'Dirección'],
             'ruc'       => ['Etiqueta del RUC', 'RUC'],
             'email'     => ['Etiqueta del e-mail', 'E-mail'],
+            'telefono'  => ['Etiqueta del teléfono', 'Teléfono'],
         ],
         'totales' => [
             'subtotal' => ['Subtotal', 'SUBTOTAL'],
@@ -169,8 +170,15 @@ class CotizacionDiseno
             } elseif ($tipo === 'parrafo') {
                 $n['clave'] = ($b['clave'] ?? '') === 'notas' ? 'notas' : 'condiciones';
             } elseif ($tipo === 'texto') {
-                $n['texto'] = mb_substr(trim((string) ($b['texto'] ?? '')), 0, 200);
+                $n['texto'] = mb_substr(trim((string) ($b['texto'] ?? '')), 0, 1000);
                 if ($n['texto'] === '') continue;      // un texto vacío es un bloque invisible
+            } elseif ($tipo === 'caja') {
+                // El recuadro puede llevar texto adentro (opcional) y un
+                // marco (borde), además del relleno de color de siempre.
+                $n['contenido']  = mb_substr(trim((string) ($b['contenido'] ?? '')), 0, 500);
+                $n['marco']      = !empty($b['marco']) ? 1 : 0;
+                $ct = (string) ($b['colorTexto'] ?? '');
+                $n['colorTexto'] = preg_match('/^#[0-9A-Fa-f]{6}$/', $ct) ? strtoupper($ct) : '#FFFFFF';
             }
 
             // Fondo opcional, para "enmarcar" el bloque con un color detrás.
@@ -417,6 +425,7 @@ class CotizacionDiseno
             'cliente_direccion' => 'Av. Los Constructores 1234, La Molina - Lima',
             'cliente_ruc'       => '20100000001',
             'cliente_email'     => 'compras@ejemplo.com.pe',
+            'cliente_telefono'  => '01 234 5678',
         ];
     }
 }

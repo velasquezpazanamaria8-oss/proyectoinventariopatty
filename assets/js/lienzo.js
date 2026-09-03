@@ -106,6 +106,15 @@
     } else if (b.tipo === 'caja') {
       d.style.background = b.color;
       d.style.height = b.h + 'px';
+      if (b.marco) d.style.border = '1px solid ' + (b.colorTexto || '#fff');
+      if (b.contenido) {
+        d.style.color = b.colorTexto || '#FFFFFF';
+        d.style.fontSize = b.tam + 'px';
+        d.style.fontWeight = b.negrita ? '700' : '400';
+        d.style.textAlign = b.alin === 'der' ? 'right' : (b.alin === 'centro' ? 'center' : 'left');
+        d.style.padding = '4px';
+        d.textContent = b.contenido;
+      }
     } else if (b.tipo === 'linea') {
       d.style.borderTop = '1px solid ' + b.color;
     } else if (b.tipo === 'logo') {
@@ -124,6 +133,7 @@
       d.appendChild(trozo('bl-linea', etiquetar(rc.empresa, S.cliente.nombre), b.color));
       d.appendChild(trozo('bl-linea', etiquetar(rc.direccion, S.cliente.direccion), b.color));
       d.appendChild(trozo('bl-linea', etiquetar(rc.ruc, S.cliente.ruc)
+        + '   ' + etiquetar(rc.telefono, S.cliente.telefono)
         + '   ' + etiquetar(rc.email, S.cliente.email), b.color));
     } else if (b.tipo === 'totales') {
       var rt = rot(b);
@@ -364,8 +374,34 @@
     props.appendChild(titulo);
 
     if (b.tipo === 'texto') {
-      props.appendChild(campo('Texto', entrada('text', b.texto || '',
-        function (v) { b.texto = v; }, { maxlength: 200 }, agrup('texto'))));
+      var taTexto = document.createElement('textarea');
+      taTexto.rows = 3;
+      taTexto.maxLength = 1000;
+      taTexto.value = b.texto || '';
+      taTexto.addEventListener('input', function () { b.texto = taTexto.value; cambio(agrup('texto')); });
+      props.appendChild(campo('Texto (un renglón por línea, para listas)', taTexto));
+    }
+
+    if (b.tipo === 'caja') {
+      var taCaja = document.createElement('textarea');
+      taCaja.rows = 3;
+      taCaja.maxLength = 500;
+      taCaja.value = b.contenido || '';
+      taCaja.addEventListener('input', function () { b.contenido = taCaja.value; cambio(agrup('contenido')); });
+      props.appendChild(campo('Texto dentro del recuadro (opcional)', taCaja));
+
+      props.appendChild(campo('Color del texto', entrada('color', b.colorTexto || '#FFFFFF',
+        function (v) { b.colorTexto = v.toUpperCase(); }, null, agrup('colorTexto'))));
+
+      var mar = document.createElement('label');
+      mar.className = 'lienzo-check';
+      var chkMar = document.createElement('input');
+      chkMar.type = 'checkbox';
+      chkMar.checked = !!b.marco;
+      chkMar.addEventListener('change', function () { b.marco = chkMar.checked ? 1 : 0; cambio(); });
+      mar.appendChild(chkMar);
+      mar.appendChild(document.createTextNode(' Con marco (borde)'));
+      props.appendChild(mar);
     }
 
     // El texto de condiciones/notas es de la empresa, no del bloque (los dos
@@ -414,13 +450,14 @@
       props.appendChild(subirFirma(b));
     }
 
-    if (b.tipo === 'dato' || b.tipo === 'texto' || b.tipo === 'parrafo') {
+    var CON_TAMANO = ['dato', 'texto', 'parrafo', 'cliente', 'totales', 'firmas', 'firma1', 'caja'];
+    if (CON_TAMANO.indexOf(b.tipo) !== -1) {
       var r2 = document.createElement('div');
       r2.className = 'props-rejilla';
       r2.appendChild(campo('Tamaño', entrada('number', b.tam,
         function (v) { b.tam = +v; }, { min: 5, max: 40, step: 0.5 }, agrup('tam'))));
 
-      if (b.tipo !== 'parrafo') {
+      if (b.tipo === 'dato' || b.tipo === 'texto' || b.tipo === 'caja') {
         var alin = document.createElement('select');
         [['izq', 'Izquierda'], ['centro', 'Centro'], ['der', 'Derecha']].forEach(function (o) {
           var op = document.createElement('option');
@@ -441,7 +478,8 @@
       props.appendChild(controlFondo(b));
     }
 
-    if (b.tipo === 'dato' || b.tipo === 'texto') {
+    var CON_NEGRITA = ['dato', 'texto', 'parrafo', 'cliente', 'totales', 'firmas', 'firma1', 'caja'];
+    if (CON_NEGRITA.indexOf(b.tipo) !== -1) {
       var neg = document.createElement('label');
       neg.className = 'lienzo-check';
       var chk = document.createElement('input');

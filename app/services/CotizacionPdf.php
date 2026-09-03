@@ -393,7 +393,7 @@ class CotizacionPdf
 
         switch ($b['tipo']) {
             case 'caja':
-                $p->caja($b['x'], $y, $b['w'], $b['h'], $b['color']);
+                $this->bloqueCaja($b, $y);
                 break;
 
             case 'linea':
@@ -443,6 +443,41 @@ class CotizacionPdf
     }
 
     /** Texto de un bloque: se parte en varias líneas si no cabe en el ancho. */
+    /**
+     * El recuadro de color: el relleno de siempre, más marco y texto adentro
+     * opcionales, para que sirva de verdad como "cuadro con algo escrito"
+     * y no sólo de franja decorativa.
+     */
+    private function bloqueCaja(array $b, float $yTop): void
+    {
+        $p = $this->pdf;
+        $p->caja($b['x'], $yTop, $b['w'], $b['h'], $b['color']);
+        if (!empty($b['marco'])) {
+            $p->marco($b['x'], $yTop, $b['w'], $b['h'], self::LINEA);
+        }
+        $contenido = trim((string) ($b['contenido'] ?? ''));
+        if ($contenido === '') {
+            return;
+        }
+        $tam = $b['tam'] ?: 9;
+        $pad = 6.0;
+        $x = $b['x'] + $pad;
+        $ancho = $b['w'] - $pad * 2;
+        $lineas = [];
+        foreach (preg_split('/\r\n|\r|\n/', $contenido) as $renglon) {
+            foreach ($p->repartir($renglon, $ancho, $tam) as $l) {
+                $lineas[] = $l;
+            }
+        }
+        $y = $yTop - $pad - $tam * 0.85;
+        foreach ($lineas as $linea) {
+            if ($yTop - $y > $b['h'] - $pad) break;  // no se sale del recuadro
+            $p->escribir($linea, $x, $y, $ancho, $b['alin'],
+                (bool) ($b['negrita'] ?? false), $tam, $b['colorTexto'] ?? '#FFFFFF');
+            $y -= $tam * 1.2;
+        }
+    }
+
     private function textoLibre(string $txt, array $b, float $yTop): void
     {
         $p = $this->pdf;
@@ -454,7 +489,16 @@ class CotizacionPdf
         $x = $b['x'] + $pad;
         $ancho = $b['w'] - $pad * 2;
 
-        $lineas = $p->repartir($txt, $ancho, $b['tam']);
+        // repartir() trata los saltos de línea como espacios y los borra: si
+        // alguien escribió una lista renglón por renglón, hay que partir por
+        // esos renglones PRIMERO y sólo dejar que repartir() envuelva cada
+        // uno cuando no entra en el ancho, o la lista sale hecha un párrafo.
+        $lineas = [];
+        foreach (preg_split('/\r\n|\r|\n/', $txt) as $renglon) {
+            foreach ($p->repartir($renglon, $ancho, $b['tam']) as $l) {
+                $lineas[] = $l;
+            }
+        }
         if ($fondo) {
             $alto = count($lineas) * $b['tam'] * 1.2 + $pad * 2;
             $p->caja($b['x'], $yTop, $b['w'], $alto, $fondo);
@@ -475,30 +519,35 @@ class CotizacionPdf
         $ancho = $b['w'];
         $color = $b['color'];
         $r = $b['textos'];
+        $tam = $b['tam'] ?: 8.5;
+        $negrita = (bool) ($b['negrita'] ?? false);
+        $alto = 62;
 
         // La franja del rótulo lleva un fondo claro de fábrica; si se eligió
         // uno propio, se usa ése en vez del gris de siempre.
         $p->caja($x, $yTop, $ancho, 15, $b['fondo'] ?? '#F1F5F9');
-        $p->marco($x, $yTop, $ancho, 62, self::LINEA);
+        $p->marco($x, $yTop, $ancho, $alto, self::LINEA);
         if ($r['rotulo'] !== '') {
-            $p->escribir($r['rotulo'], $x, $yTop - 11, $ancho, 'izq', true, 8.5, $color);
+            $p->escribir($r['rotulo'], $x, $yTop - 11, $ancho, 'izq', true, $tam, $color);
         }
 
         // La empresa y la dirección ocupan la fila entera: son las que se cortan
-        // si se les da media. El RUC y el correo sí caben a dos columnas.
+        // si se les da media. RUC, teléfono y correo caben a tres columnas.
         $y = $yTop - 26;
         foreach ([[$r['empresa'], $this->cot['cliente_nombre']],
                   [$r['direccion'], $this->cot['cliente_direccion'] ?: '-']] as [$et, $valor]) {
-            $p->escribir($et !== '' ? $et . ':' : '', $x + 6, $y, 60, 'izq', false, 7.5, $color);
-            $p->escribir((string) $valor, $x + 58, $y, $ancho - 64, 'izq', false, 8.5, $color);
+            $p->escribir($et !== '' ? $et . ':' : '', $x + 6, $y, 60, 'izq', $negrita, $tam - 1, $color);
+            $p->escribir((string) $valor, $x + 58, $y, $ancho - 64, 'izq', $negrita, $tam, $color);
             $y -= 13;
         }
         $col = 0;
+        $anchoCol = $ancho / 3;
         foreach ([[$r['ruc'], $this->cot['cliente_ruc'] ?: '-'],
+                  [$r['telefono'], $this->cot['cliente_telefono'] ?: '-'],
                   [$r['email'], $this->cot['cliente_email'] ?: '-']] as [$et, $valor]) {
-            $xc = $x + 6 + $col * ($ancho / 2);
-            $p->escribir($et !== '' ? $et . ':' : '', $xc, $y, 60, 'izq', false, 7.5, $color);
-            $p->escribir((string) $valor, $xc + 52, $y, $ancho / 2 - 60, 'izq', false, 8.5, $color);
+            $xc = $x + 6 + $col * $anchoCol;
+            $p->escribir($et !== '' ? $et . ':' : '', $xc, $y, 45, 'izq', $negrita, $tam - 1, $color);
+            $p->escribir((string) $valor, $xc + 40, $y, $anchoCol - 46, 'izq', $negrita, $tam, $color);
             $col++;
         }
     }
@@ -512,6 +561,8 @@ class CotizacionPdf
         $r = $b['textos'];
         $simbolo  = $this->emp['simbolo'] ?? 'S/';
         $etiqueta = min(90, $ancho * 0.5);
+        $tam = $b['tam'] ?: 8.5;
+        $negrita = (bool) ($b['negrita'] ?? false);
         $y = $yTop;
 
         foreach ([[$r['subtotal'], $this->cot['subtotal'], false],
@@ -519,14 +570,14 @@ class CotizacionPdf
                   [$r['total'], $this->cot['total'], true]] as [$et, $val, $fuerte]) {
             $importe = $simbolo . ' ' . Vista::num($val, 2);
             if ($fuerte) {
-                $p->caja($x, $y, $ancho, 18, $color);
-                $p->escribir($et, $x, $y - 12, $etiqueta, 'izq', true, 9.5, '#FFFFFF');
-                $p->escribir($importe, $x + $etiqueta, $y - 12, $ancho - $etiqueta, 'der', true, 9.5, '#FFFFFF');
-                $y -= 18;
+                $p->caja($x, $y, $ancho, $tam * 2.1, $color);
+                $p->escribir($et, $x, $y - $tam * 1.4, $etiqueta, 'izq', true, $tam + 1, '#FFFFFF');
+                $p->escribir($importe, $x + $etiqueta, $y - $tam * 1.4, $ancho - $etiqueta, 'der', true, $tam + 1, '#FFFFFF');
+                $y -= $tam * 2.1;
             } else {
-                $p->escribir($et, $x, $y - 11, $etiqueta, 'izq', false, 8.5, $color);
-                $p->escribir($importe, $x + $etiqueta, $y - 11, $ancho - $etiqueta, 'der', false, 8.5, $color);
-                $y -= 14;
+                $p->escribir($et, $x, $y - $tam * 1.3, $etiqueta, 'izq', $negrita, $tam, $color);
+                $p->escribir($importe, $x + $etiqueta, $y - $tam * 1.3, $ancho - $etiqueta, 'der', $negrita, $tam, $color);
+                $y -= $tam * 1.65;
             }
         }
     }
@@ -552,7 +603,8 @@ class CotizacionPdf
 
         foreach ([[$x, $izq], [$x + $ancho - $anchoFirma, $der]] as [$xf, $nombre]) {
             $p->linea($xf, $yTop, $anchoFirma, self::LINEA, 0.8);
-            $p->escribir((string) $nombre, $xf, $yTop - 11, $anchoFirma, 'centro', false, 8, $color);
+            $p->escribir((string) $nombre, $xf, $yTop - 11, $anchoFirma, 'centro',
+                (bool) ($b['negrita'] ?? false), $b['tam'] ?: 8, $color);
         }
     }
 
@@ -592,7 +644,8 @@ class CotizacionPdf
         $yLinea = $yTop - $altoImg - 6;
         $p->linea($x, $yLinea, $ancho, self::LINEA, 0.8);
         if ($nombre !== '') {
-            $p->escribir($nombre, $x, $yLinea - 11, $ancho, 'centro', false, 8, $color);
+            $p->escribir($nombre, $x, $yLinea - 11, $ancho, 'centro',
+                (bool) ($b['negrita'] ?? false), $b['tam'] ?: 8, $color);
         }
     }
 
@@ -638,9 +691,10 @@ class CotizacionPdf
             $p->caja($b['x'], $yTop, $ancho, $altoTotal, $fondo);
         }
 
+        $negrita = (bool) ($b['negrita'] ?? false);
         $y = $yTop - $pad;
         foreach ($lineas as [$txt, $esTitulo, $tamLinea]) {
-            $p->escribir($txt, $x, $y - $tamLinea, $anchoTexto, 'izq', $esTitulo, $tamLinea, $color);
+            $p->escribir($txt, $x, $y - $tamLinea, $anchoTexto, 'izq', $esTitulo || $negrita, $tamLinea, $color);
             $y -= $esTitulo ? $tam * 2 : $tam * 1.3;
         }
     }

@@ -56,6 +56,8 @@ $incluyeIgv = $esNueva ? (bool) $cfg['incluye_igv'] : (bool) $cot['incluye_igv']
         <input type="text" name="cliente_ruc" maxlength="20" value="<?= e($cot['cliente_ruc'] ?? '') ?>"></div>
       <div class="campo"><label>E-mail</label>
         <input type="email" name="cliente_email" maxlength="150" value="<?= e($cot['cliente_email'] ?? '') ?>"></div>
+      <div class="campo"><label>Teléfono</label>
+        <input type="text" name="cliente_telefono" maxlength="30" value="<?= e($cot['cliente_telefono'] ?? '') ?>"></div>
       <div class="campo" style="grid-column:span 2"><label>Dirección</label>
         <input type="text" name="cliente_direccion" maxlength="255" value="<?= e($cot['cliente_direccion'] ?? '') ?>"></div>
     </div>

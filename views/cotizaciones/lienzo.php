@@ -24,6 +24,7 @@ $estado = [
         'direccion' => $muestra['cliente_direccion'],
         'ruc'       => $muestra['cliente_ruc'],
         'email'     => $muestra['cliente_email'],
+        'telefono'  => $muestra['cliente_telefono'],
     ],
     'rotulos'      => CotizacionDiseno::ROTULOS,
     'previa'       => url('cotizacion_previa.php'),

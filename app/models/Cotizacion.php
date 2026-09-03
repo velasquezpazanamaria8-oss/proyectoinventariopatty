@@ -101,6 +101,7 @@ class Cotizacion
                 'cliente_ruc'       => $cliente['ruc'],
                 'cliente_direccion' => $cliente['direccion'],
                 'cliente_email'     => $cliente['email'],
+                'cliente_telefono'  => $cliente['telefono'],
                 'fecha'             => ($cab['fecha'] ?? '') ?: date('Y-m-d'),
                 'valida_hasta'      => ($cab['valida_hasta'] ?? '') ?: null,
                 'referencia'        => trim((string) ($cab['referencia'] ?? '')) ?: null,
@@ -250,7 +251,8 @@ class Cotizacion
                 throw new RuntimeException('El cliente no pertenece a la empresa activa.');
             }
             return ['id' => (int) $c['id'], 'razon_social' => $c['razon_social'],
-                    'ruc' => $c['ruc'], 'direccion' => $c['direccion'], 'email' => $c['email']];
+                    'ruc' => $c['ruc'], 'direccion' => $c['direccion'], 'email' => $c['email'],
+                    'telefono' => $c['telefono'] ?? null];
         }
 
         $nombre = trim((string) ($cab['cliente_nombre'] ?? ''));
@@ -260,7 +262,8 @@ class Cotizacion
         return ['id' => null, 'razon_social' => mb_substr($nombre, 0, 180),
                 'ruc'       => trim((string) ($cab['cliente_ruc'] ?? '')) ?: null,
                 'direccion' => trim((string) ($cab['cliente_direccion'] ?? '')) ?: null,
-                'email'     => trim((string) ($cab['cliente_email'] ?? '')) ?: null];
+                'email'     => trim((string) ($cab['cliente_email'] ?? '')) ?: null,
+                'telefono'  => trim((string) ($cab['cliente_telefono'] ?? '')) ?: null];
     }
 
     // ------------------------------------------------------------------
@@ -313,6 +316,7 @@ class Cotizacion
             'cliente_ruc'   => $c['cliente_ruc'],
             'cliente_direccion' => $c['cliente_direccion'],
             'cliente_email' => $c['cliente_email'],
+            'cliente_telefono' => $c['cliente_telefono'] ?? null,
             'fecha'         => date('Y-m-d'),
             'valida_hasta'  => null,
             'referencia'    => $c['referencia'],

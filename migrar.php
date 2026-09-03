@@ -344,6 +344,7 @@ try {
           cliente_ruc       VARCHAR(20)  NULL,
           cliente_direccion VARCHAR(255) NULL,
           cliente_email     VARCHAR(150) NULL,
+          cliente_telefono  VARCHAR(30)  NULL,
           fecha         DATE NOT NULL,
           valida_hasta  DATE NULL,
           referencia    VARCHAR(120) NULL,
@@ -368,6 +369,15 @@ try {
         paso('[OK] creada la tabla cotizaciones');
         $cambios++;
     } else { paso('[--] cotizaciones ya existe'); }
+
+    // 8b. Teléfono del cliente (empresas que ya tenían la tabla cotizaciones)
+    if (existeTabla('cotizaciones') && !existeColumna('cotizaciones', 'cliente_telefono')) {
+        DB::query('ALTER TABLE cotizaciones ADD cliente_telefono VARCHAR(30) NULL AFTER cliente_email');
+        paso('[OK] cotizaciones: agregado cliente_telefono');
+        $cambios++;
+    } else if (existeTabla('cotizaciones')) {
+        paso('[--] cotizaciones ya tiene cliente_telefono');
+    }
 
     if (!existeTabla('cotizacion_detalle')) {
         // producto_id es OPCIONAL a propósito: siete de las ocho empresas no
