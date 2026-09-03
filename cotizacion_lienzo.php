@@ -66,8 +66,11 @@ if (($_SERVER['REQUEST_METHOD'] === 'POST') && (($_POST['a'] ?? '') === 'subir_f
             throw new RuntimeException('No llegó ninguna imagen.');
         }
         $ruta = CotizacionDiseno::guardarImagenFirma($archivo);
-        echo json_encode(['ok' => true, 'ruta' => $ruta,
-            'url' => url('cotizacion_lienzo.php?a=firma&r=' . urlencode($ruta))]);
+        // No se usa la función global url() aquí: en este punto la clase
+        // Vista (donde vive, junto al autoload por clases) puede no estar
+        // cargada todavía, y no hace falta: el JS ya arma esa URL con
+        // S.verFirma + la ruta.
+        echo json_encode(['ok' => true, 'ruta' => $ruta]);
     } catch (Throwable $e) {
         echo json_encode(['ok' => false, 'error' => $e->getMessage()]);
     }
