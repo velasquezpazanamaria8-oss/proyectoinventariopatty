@@ -325,6 +325,12 @@ table.tabla tr.sin-stock td{color:var(--suave)}
 .bloque {
   position: absolute; box-sizing: border-box; cursor: move;
   outline: 1px dashed rgba(100, 116, 139, .45);
+  /* Un texto suelto de tamaño 9 mide sólo ~11px de alto: casi imposible de
+     acertar con el mouse, y quien fallaba el clic creía que el bloque ya no
+     se podía seleccionar. Con un mínimo de 18px queda cómodo de tocar sin
+     desviarse de lo que en verdad va a ocupar en el PDF (el marco punteado
+     es sólo una guía, nunca se imprime). */
+  min-height: 18px;
 }
 .bloque:hover { outline-color: var(--azul-2); }
 .bloque.sel { outline: 2px solid var(--azul-2); }
