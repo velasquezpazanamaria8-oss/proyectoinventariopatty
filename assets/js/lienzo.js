@@ -565,7 +565,10 @@
       b: bloques[i],
       tirar: !!tirador,
       x0: ev.clientX, y0: ev.clientY,
-      bx: bloques[i].x, by: bloques[i].y, bw: bloques[i].w, bh: bloques[i].h
+      bx: bloques[i].x, by: bloques[i].y, bw: bloques[i].w, bh: bloques[i].h,
+      // A qué altura del bloque se agarró (para que su borde superior siga
+      // al cursor sin saltar, si además cruza de zona).
+      offY: ev.clientY - el.getBoundingClientRect().top
     };
     seleccionar(i);
     ev.preventDefault();
@@ -591,15 +594,36 @@
       }
     } else {
       b.x = Math.max(0, Math.min(ANCHO_HOJA - 8, encajar(arrastre.bx + dx)));
-      // El alto de la zona tiene un límite de verdad (arriba lo marca el
-      // divisor, abajo el fondo del recuadro que se ve en pantalla). Sin
-      // este tope se podía arrastrar un bloque de la CABECERA mucho más
-      // abajo de su propio límite, hasta quedar enterrado visualmente
-      // debajo del PIE —que se dibuja encima por venir después—, y ahí
-      // ya no había forma de volver a tocarlo: parecía "estar en el pie"
-      // sin estarlo de verdad.
-      var altoZona = b.zona === 'cabecera' ? altoCabecera : ALTO_PIE;
-      b.y = Math.max(0, Math.min(altoZona - 10, encajar(arrastre.by + dy)));
+
+      if (zonasDe(b.tipo).length > 1) {
+        // La pieza admite las dos zonas: cruzar de una a otra arrastrando es
+        // más natural que ir al panel a cambiar "Zona" a mano. La tabla en sí
+        // sigue sin poder tocarse —eso no cambia—, pero lo que va antes o
+        // después de ella sí se puede pasar de un lado al otro arrastrando.
+        var techoCab = zonas.cabecera.getBoundingClientRect().top;
+        var techoPie = zonas.pie.getBoundingClientRect().top;
+        var bordeSuperior = ev.clientY - arrastre.offY;
+        // Se decide por cuál "techo" queda más cerca el borde de arriba del
+        // bloque: mientras no cruce la mitad del salto (tabla + divisor) se
+        // queda en la zona en la que empezó, para que no ande cambiando de
+        // zona con cada pixel cerca del límite.
+        var mitad = (techoCab + altoCabecera + techoPie) / 2;
+        var nuevaZona = bordeSuperior >= mitad ? 'pie' : 'cabecera';
+        var techoNuevo = nuevaZona === 'pie' ? techoPie : techoCab;
+        b.zona = nuevaZona;
+        var altoZona = nuevaZona === 'cabecera' ? altoCabecera : ALTO_PIE;
+        b.y = Math.max(0, Math.min(altoZona - 10, encajar(bordeSuperior - techoNuevo)));
+      } else {
+        // El alto de la zona tiene un límite de verdad (arriba lo marca el
+        // divisor, abajo el fondo del recuadro que se ve en pantalla). Sin
+        // este tope se podía arrastrar un bloque de la CABECERA mucho más
+        // abajo de su propio límite, hasta quedar enterrado visualmente
+        // debajo del PIE —que se dibuja encima por venir después—, y ahí
+        // ya no había forma de volver a tocarlo: parecía "estar en el pie"
+        // sin estarlo de verdad.
+        var altoZonaFija = b.zona === 'cabecera' ? altoCabecera : ALTO_PIE;
+        b.y = Math.max(0, Math.min(altoZonaFija - 10, encajar(arrastre.by + dy)));
+      }
     }
     pintar();
   });
@@ -610,7 +634,15 @@
   // anterior y llevándose el movimiento por delante—.
   ['pointerup', 'pointercancel', 'blur'].forEach(function (ev) {
     window.addEventListener(ev, function () {
-      if (arrastre) { arrastre = null; cambio(); }
+      if (arrastre) {
+        arrastre = null;
+        cambio();
+        // Si el arrastre cruzó de zona, el panel "Bloque" quedaba mostrando
+        // la zona vieja (sólo se refrescan X/Y/Ancho/Alto en cada trazo, no
+        // el desplegable de Zona) hasta volver a tocar el bloque. Se rehace
+        // entero al soltar, para que diga la zona real desde ya.
+        verProps();
+      }
     });
   });
 
