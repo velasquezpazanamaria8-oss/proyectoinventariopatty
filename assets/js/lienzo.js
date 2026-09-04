@@ -858,8 +858,47 @@
     estadoPrevia.className = 'previa-estado';
   });
 
+  /**
+   * Por varios caminos (pegar, agregar, cambiar de zona) un bloque podía
+   * terminar exactamente encima de otro, y el de abajo quedaba imposible de
+   * volver a tocar. Esos tres caminos ya quedaron corregidos, pero un diseño
+   * guardado ANTES de esas correcciones puede seguir arrastrando bloques
+   * pegados de esa época. En vez de obligar a ir arrastrando de a uno para
+   * despegarlos, esto los separa solo, cada vez que se abre el lienzo.
+   */
+  function separarPegados() {
+    var porZona = {};
+    var movidos = 0;
+    bloques.forEach(function (b) {
+      var lista = porZona[b.zona] || (porZona[b.zona] = []);
+      var vueltas = 0;
+      while (lista.some(function (o) { return Math.abs(o.x - b.x) < 8 && Math.abs(o.y - b.y) < 8; }) && vueltas < 200) {
+        b.x = Math.min(ANCHO_HOJA - 8, b.x + 15);
+        b.y = b.y + 15;
+        vueltas++;
+      }
+      if (vueltas > 0) movidos++;
+      lista.push(b);
+    });
+    return movidos;
+  }
+
+  var separados = separarPegados();
+
   pintar();
   verProps();
   registrar();          // el punto de partida, para poder volver a él
   dibujarPrevia();
+
+  if (separados > 0) {
+    // Se avisa y se marca como cambio sin guardar: que sea el usuario quien
+    // decida guardar esta nueva disposición, no algo que pase en silencio.
+    var aviso = document.createElement('div');
+    aviso.className = 'alerta alerta-warning';
+    aviso.style.marginTop = '10px';
+    aviso.textContent = 'Se separaron ' + separados + ' bloque(s) que estaban pegados exactamente uno '
+      + 'encima de otro (de antes de la corrección) y no se podían volver a tocar. Revise cómo quedaron '
+      + 'y guarde cuando esté conforme.';
+    hoja.parentNode.insertBefore(aviso, hoja);
+  }
 })();
