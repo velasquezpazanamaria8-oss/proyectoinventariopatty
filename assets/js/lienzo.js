@@ -19,7 +19,12 @@
 
   var ANCHO_HOJA = 595.28;
   var MARGEN = 30;
-  var ALTO_PIE = 320;          // lo que se enseña de la zona de pie
+  // Cuánto se deja componer en el pie. No es "lo que cabe en la hoja": una
+  // cotización corta deja mucho aire debajo de la tabla, así que se da
+  // bastante margen para bajar una firma u otro bloque sin toparse con un
+  // techo artificial. (Antes eran 320px y ESE número se usaba también como
+  // tope del arrastre: por eso "no dejaba bajar la firma" más de ahí.)
+  var ALTO_PIE = 700;
   var REJILLA = 5;             // el arrastre encaja en puntos de 5 en 5
 
   // Piezas que aceptan un fondo de color opcional (ver CotizacionDiseno::CON_FONDO).
