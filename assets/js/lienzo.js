@@ -503,7 +503,18 @@
         if (b.zona === v) op.selected = true;
         z.appendChild(op);
       });
-      z.addEventListener('change', function () { b.zona = z.value; b.y = 10; cambio(); });
+      z.addEventListener('change', function () {
+        b.zona = z.value;
+        // Mandarlo siempre al mismo punto (30,10) lo apilaba encima de lo
+        // que ya hubiera ahí en la zona nueva —a veces varios bloques
+        // distintos, uno sobre otro— y el de abajo quedaba imposible de
+        // volver a tocar. Se cuenta cuántos hay ya en esa zona y se cae más
+        // abajo, en cascada, igual que al agregar o pegar un bloque.
+        var yaHay = bloques.filter(function (o) { return o !== b && o.zona === b.zona; }).length;
+        b.x = Math.min(ANCHO_HOJA - 8, MARGEN + (yaHay % 6) * 15);
+        b.y = 10 + yaHay * 15;
+        cambio();
+      });
       props.appendChild(campo('Zona', z));
     }
 
