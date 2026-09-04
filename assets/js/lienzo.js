@@ -651,6 +651,11 @@
     copia.x = Math.min(ANCHO_HOJA - 8, copia.x + 15);
     copia.y = copia.y + 15;
     bloques.push(copia);
+    // El portapapeles pasa a ser ESTA copia: si se pega otra vez (Ctrl+V),
+    // se desplaza desde aquí, no desde el original. Si no, pegar varias
+    // veces seguidas deja todas las copias exactamente superpuestas, tapando
+    // las de abajo para siempre.
+    portapapeles = JSON.parse(JSON.stringify(copia));
     seleccionar(bloques.length - 1);
     cambio();
   }
@@ -670,6 +675,10 @@
       copia.x = Math.min(ANCHO_HOJA - 8, copia.x + 15);
       copia.y = copia.y + 15;
       bloques.push(copia);
+      // En cascada: la próxima vez que se pegue, se desplaza desde ESTA
+      // copia. Pegar varias veces seguidas (Ctrl+V, Ctrl+V...) sin esto
+      // dejaba todas las copias en el mismo sitio, una tapando a la otra.
+      portapapeles = JSON.parse(JSON.stringify(copia));
       seleccionar(bloques.length - 1);
       cambio();
       ev.preventDefault();
