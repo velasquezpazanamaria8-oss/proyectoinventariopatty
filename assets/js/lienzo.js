@@ -631,9 +631,14 @@
       if (tipo === 'firma1') { b.imagen = null; }
 
       // Cae en un hueco libre y no encima del último: dos bloques superpuestos
-      // al añadirlos parecen uno solo y se arrastra el que no es.
-      var mismos = bloques.filter(function (o) { return o.zona === zona; });
-      b.y = 10 + mismos.length * 4;
+      // al añadirlos parecen uno solo y el de abajo queda imposible de volver
+      // a tocar. 4px de diferencia no bastaba —más chico que la propia altura
+      // del bloque—, así que varios "Texto fijo" seguidos se tapaban unos a
+      // otros por completo. Se cuenta sólo el mismo tipo en la misma zona,
+      // para no correr de su sitio a piezas ya acomodadas (totales, firmas...).
+      var mismoTipo = bloques.filter(function (o) { return o.zona === zona && o.tipo === tipo; });
+      b.x = Math.min(ANCHO_HOJA - 8, MARGEN + mismoTipo.length * 15);
+      b.y = 10 + mismoTipo.length * 20;
 
       bloques.push(b);
       seleccionar(bloques.length - 1);
