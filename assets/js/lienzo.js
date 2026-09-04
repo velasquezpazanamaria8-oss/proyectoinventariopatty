@@ -591,7 +591,15 @@
       }
     } else {
       b.x = Math.max(0, Math.min(ANCHO_HOJA - 8, encajar(arrastre.bx + dx)));
-      b.y = Math.max(0, encajar(arrastre.by + dy));
+      // El alto de la zona tiene un límite de verdad (arriba lo marca el
+      // divisor, abajo el fondo del recuadro que se ve en pantalla). Sin
+      // este tope se podía arrastrar un bloque de la CABECERA mucho más
+      // abajo de su propio límite, hasta quedar enterrado visualmente
+      // debajo del PIE —que se dibuja encima por venir después—, y ahí
+      // ya no había forma de volver a tocarlo: parecía "estar en el pie"
+      // sin estarlo de verdad.
+      var altoZona = b.zona === 'cabecera' ? altoCabecera : ALTO_PIE;
+      b.y = Math.max(0, Math.min(altoZona - 10, encajar(arrastre.by + dy)));
     }
     pintar();
   });
@@ -883,6 +891,25 @@
     return movidos;
   }
 
+  /**
+   * De antes de que el arrastre tuviera tope de altura (ver más arriba), un
+   * bloque de CABECERA pudo quedar arrastrado muy abajo, enterrado debajo del
+   * PIE —que se dibuja encima por venir después—: visible, pero sin forma de
+   * volver a tocarlo. Se trae de vuelta dentro del límite de su propia zona.
+   */
+  function corregirFueraDeZona() {
+    var corregidos = 0;
+    bloques.forEach(function (b) {
+      var altoZona = b.zona === 'cabecera' ? altoCabecera : ALTO_PIE;
+      if (b.y > altoZona - 10) {
+        b.y = altoZona - 10;
+        corregidos++;
+      }
+    });
+    return corregidos;
+  }
+
+  var fueraDeZona = corregirFueraDeZona();
   var separados = separarPegados();
 
   pintar();
@@ -890,15 +917,22 @@
   registrar();          // el punto de partida, para poder volver a él
   dibujarPrevia();
 
-  if (separados > 0) {
+  if (separados > 0 || fueraDeZona > 0) {
     // Se avisa y se marca como cambio sin guardar: que sea el usuario quien
     // decida guardar esta nueva disposición, no algo que pase en silencio.
+    var partes = [];
+    if (fueraDeZona > 0) {
+      partes.push(fueraDeZona + ' bloque(s) que estaban arrastrados fuera del límite de su zona '
+        + '(enterrados debajo de la otra) se trajeron de vuelta adentro');
+    }
+    if (separados > 0) {
+      partes.push('se separaron ' + separados + ' bloque(s) que estaban pegados exactamente uno encima de otro');
+    }
     var aviso = document.createElement('div');
     aviso.className = 'alerta alerta-warning';
     aviso.style.marginTop = '10px';
-    aviso.textContent = 'Se separaron ' + separados + ' bloque(s) que estaban pegados exactamente uno '
-      + 'encima de otro (de antes de la corrección) y no se podían volver a tocar. Revise cómo quedaron '
-      + 'y guarde cuando esté conforme.';
+    aviso.textContent = partes.join('; ') + ' (de antes de la corrección). '
+      + 'Revise cómo quedaron y guarde cuando esté conforme.';
     hoja.parentNode.insertBefore(aviso, hoja);
   }
 })();
