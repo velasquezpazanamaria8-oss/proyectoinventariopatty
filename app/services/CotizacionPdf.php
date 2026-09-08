@@ -26,6 +26,9 @@ class CotizacionPdf
 
         $this->pdf = new Pdf($config['titulo'] . ' ' . CotizacionConfig::formatoNumero($config, (int) $cotizacion['numero']));
         $this->pdf->sinCabecera();
+        // Es un documento que sale a un cliente, no un reporte interno: el
+        // "Página X de Y · título" que el generador pone por defecto sobra.
+        $this->pdf->sinPie();
     }
 
     public function generar(): string

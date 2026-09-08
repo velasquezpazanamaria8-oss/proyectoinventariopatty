@@ -37,6 +37,7 @@ class Pdf
      * desactiva y se dibuja entera.
      */
     private bool $conCabecera = true;
+    private bool $conPie = true;
 
     private const FUENTE   = 'F1';   // Helvetica
     private const NEGRITA  = 'F2';   // Helvetica-Bold
@@ -142,6 +143,13 @@ class Pdf
         if ($this->actual === '' && !$this->paginas) {
             $this->y = $this->alto - $this->margen;
         }
+    }
+
+    /** Desactiva el "Página X de Y · título" del pie: un reporte interno lo
+     *  necesita, un documento que se le manda al cliente (una cotización) no. */
+    public function sinPie(): void
+    {
+        $this->conPie = false;
     }
 
     public function margen(): float  { return $this->margen; }
@@ -526,10 +534,10 @@ class Pdf
             $idCnt = $idPag + 1;
 
             // Pie con numeración, añadido al cerrar
-            $pie = sprintf("BT 0.45 0.5 0.58 rg /%s 7.5 Tf %.2f %.2f Td (%s) Tj ET\n",
+            $pie = $this->conPie ? sprintf("BT 0.45 0.5 0.58 rg /%s 7.5 Tf %.2f %.2f Td (%s) Tj ET\n",
                 self::FUENTE, $this->margen, $this->margen - 8,
                 self::escapar(self::aLatin('Página ' . ($i + 1) . ' de ' . $total
-                    . '  ·  ' . $this->titulo)));
+                    . '  ·  ' . $this->titulo))) : '';
             $flujo = $contenido . $pie;
 
             $objs[$idPag] = sprintf(
