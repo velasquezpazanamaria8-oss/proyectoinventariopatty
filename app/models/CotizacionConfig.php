@@ -51,7 +51,7 @@ class CotizacionConfig
     {
         return [
             'logo_ruta' => null, 'logo_posicion' => 'IZQUIERDA', 'logo_escala' => 100, 'color' => '#12395B',
-            'titulo' => 'COTIZACIÓN', 'prefijo' => null, 'digitos' => 4,
+            'titulo' => 'COTIZACIÓN', 'prefijo' => null, 'sufijo' => null, 'digitos' => 4,
             'etiqueta_ref' => 'SEGÚN REQUERIMIENTO',
             'emisor_etiquetas' => 0, 'emisor_derecha' => 0,
             'mostrar_telefono' => 0, 'mostrar_fecha' => 1,
@@ -128,6 +128,7 @@ class CotizacionConfig
             'color'            => preg_match('/^#[0-9A-Fa-f]{6}$/', $d['color'] ?? '') ? strtoupper($d['color']) : '#12395B',
             'titulo'           => mb_substr(trim((string) ($d['titulo'] ?? '')), 0, 60) ?: 'COTIZACIÓN',
             'prefijo'          => mb_substr(trim((string) ($d['prefijo'] ?? '')), 0, 20) ?: null,
+            'sufijo'           => mb_substr(trim((string) ($d['sufijo'] ?? '')), 0, 20) ?: null,
             'digitos'          => max(1, min(8, (int) ($d['digitos'] ?? 4))),
             'etiqueta_ref'     => mb_substr(trim((string) ($d['etiqueta_ref'] ?? '')), 0, 60),
             'emisor_etiquetas' => !empty($d['emisor_etiquetas']) ? 1 : 0,
@@ -297,10 +298,11 @@ class CotizacionConfig
         return 'storage/logos/' . basename($destino);
     }
 
-    /** Número tal como se enseña: prefijo + correlativo con ceros. */
+    /** Número tal como se enseña: prefijo + correlativo con ceros + sufijo. */
     public static function formatoNumero(array $cfg, int $numero): string
     {
         return (string) ($cfg['prefijo'] ?? '')
-            . str_pad((string) $numero, (int) ($cfg['digitos'] ?? 4), '0', STR_PAD_LEFT);
+            . str_pad((string) $numero, (int) ($cfg['digitos'] ?? 4), '0', STR_PAD_LEFT)
+            . (string) ($cfg['sufijo'] ?? '');
     }
 }

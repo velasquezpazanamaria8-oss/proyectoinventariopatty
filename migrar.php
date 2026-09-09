@@ -420,6 +420,7 @@ try {
           color          CHAR(7)      NOT NULL DEFAULT '#12395B',
           titulo         VARCHAR(60)  NOT NULL DEFAULT 'COTIZACIÓN',
           prefijo        VARCHAR(20)  NULL,
+          sufijo         VARCHAR(20)  NULL,
           digitos        TINYINT UNSIGNED NOT NULL DEFAULT 4,
           etiqueta_ref   VARCHAR(60)  NOT NULL DEFAULT 'SEGÚN REQUERIMIENTO',
           -- Unas ponen 'EMPRESA:', 'RUC:' delante del dato y otras el dato solo.
@@ -451,6 +452,15 @@ try {
         $cambios++;
     } else if (existeTabla('cotizacion_config')) {
         paso('[--] cotizacion_config ya tiene logo_escala');
+    }
+
+    // 9c. Sufijo del número (algo pegado DESPUÉS del número, ej. "0025-S")
+    if (existeTabla('cotizacion_config') && !existeColumna('cotizacion_config', 'sufijo')) {
+        DB::query("ALTER TABLE cotizacion_config ADD sufijo VARCHAR(20) NULL AFTER prefijo");
+        paso('[OK] cotizacion_config: agregado el sufijo del número');
+        $cambios++;
+    } else if (existeTabla('cotizacion_config')) {
+        paso('[--] cotizacion_config ya tiene sufijo');
     }
 
     // 6g-bis. Diseño libre: el lienzo

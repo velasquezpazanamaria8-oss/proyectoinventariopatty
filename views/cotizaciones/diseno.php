@@ -89,6 +89,13 @@ foreach (array_keys($campos) as $c) {
           <label>Prefijo del número</label>
           <input type="text" name="prefijo" maxlength="20" value="<?= e($cfg['prefijo'] ?? '') ?>"
                  placeholder="SUMI-, CP-, o vacío">
+          <small style="color:var(--suave)">Va antes del número: "SUMI-0025".</small>
+        </div>
+        <div class="campo">
+          <label>Sufijo del número</label>
+          <input type="text" name="sufijo" maxlength="20" value="<?= e($cfg['sufijo'] ?? '') ?>"
+                 placeholder="-S, /2026, o vacío">
+          <small style="color:var(--suave)">Va después del número: "0025-S".</small>
         </div>
         <div class="campo">
           <label>Dígitos</label>
