@@ -31,6 +31,15 @@
           <?php endforeach; ?>
         </select>
       </div>
+      <div class="campo">
+        <label>Estado</label>
+        <select name="estado">
+          <option value="">Todos</option>
+          <?php foreach (['normal' => 'Normal', 'minimo' => 'Stock mínimo', 'agotado' => 'Agotado'] as $v => $t): ?>
+            <option value="<?= $v ?>" <?= $filtros['estado'] === $v ? 'selected' : '' ?>><?= $t ?></option>
+          <?php endforeach; ?>
+        </select>
+      </div>
       <button class="btn">Filtrar</button>
       <a class="btn btn-gris" href="<?= url('inventario.php') ?>">Limpiar</a>
     </form>

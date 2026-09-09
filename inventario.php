@@ -6,6 +6,7 @@ $filtros = [
     'almacen_id'   => $_GET['almacen_id'] ?? '',
     'categoria_id' => $_GET['categoria_id'] ?? '',
     'q'            => trim($_GET['q'] ?? ''),
+    'estado'       => $_GET['estado'] ?? '',
 ];
 
 $filas = Reporte::valorizado($filtros);

@@ -41,6 +41,21 @@ class Reporte
         foreach ($filas as &$r) {
             $r['valor'] = round((float) $r['fisico'] * (float) $r['costo_promedio'], 2);
         }
+        unset($r);
+
+        // El estado (normal / stock mínimo / agotado) sale de comparar
+        // disponible contra el mínimo, no de una columna guardada: se filtra
+        // aquí, después de calcularlo, para que la pantalla y la exportación
+        // (PDF/Excel/CSV) usen el mismo criterio sin duplicarlo.
+        if (!empty($f['estado'])) {
+            $filas = array_values(array_filter($filas, function ($r) use ($f) {
+                $disp = (float) $r['disponible'];
+                $min  = (float) $r['stock_minimo'];
+                $estado = $disp <= 0 ? 'agotado' : ($disp <= $min ? 'minimo' : 'normal');
+                return $estado === $f['estado'];
+            }));
+        }
+
         return $filas;
     }
 
