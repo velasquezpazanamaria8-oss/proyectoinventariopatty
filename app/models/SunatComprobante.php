@@ -120,7 +120,8 @@ class SunatComprobante
             'SELECT periodo,
                     SUM(tipo = \'ventas\')  AS ventas,
                     SUM(tipo = \'compras\') AS compras,
-                    MAX(sincronizado_en)    AS ultima
+                    MAX(sincronizado_en)    AS ultima,
+                    SUM(mov_id IS NOT NULL) AS generados
                FROM sunat_comprobantes
               WHERE ' . Empresa::filtro() . '
               GROUP BY periodo ORDER BY periodo DESC', Empresa::param());
@@ -130,6 +131,39 @@ class SunatComprobante
             $out[$f['periodo']] = $f;
         }
         return $out;
+    }
+
+    /**
+     * Borra todo lo traído de un período (ventas y compras), con sus ítems
+     * (por la FK ON DELETE CASCADE de sunat_cpe_items).
+     *
+     * Se niega si algún comprobante de ese período ya generó un movimiento de
+     * inventario (mov_id): borrarlo ahí perdería el enlace, y al volver a
+     * sincronizar la fase 4 lo tomaría por nuevo y duplicaría el stock. No
+     * toca entradas/salidas ya creadas —esas quedan intactas, sólo se pierde
+     * el rastro hacia el comprobante de origen— por eso el candado es antes,
+     * no después.
+     */
+    public static function eliminarPeriodo(string $periodo): int
+    {
+        $empresaId = Empresa::id();
+        $generados = (int) DB::valor(
+            'SELECT COUNT(*) FROM sunat_comprobantes
+              WHERE empresa_id = :e AND periodo = :per AND mov_id IS NOT NULL',
+            [':e' => $empresaId, ':per' => $periodo]);
+        if ($generados > 0) {
+            throw new RuntimeException(
+                "No se puede eliminar: $generados comprobante(s) de este período ya generaron "
+                . 'un movimiento de inventario (entrada o salida). Anule esos movimientos primero '
+                . 'si de verdad quiere deshacer este período.');
+        }
+
+        return DB::transaccion(function () use ($empresaId, $periodo) {
+            DB::eliminar('sunat_descargas_activas', 'empresa_id = :e AND periodo = :per',
+                [':e' => $empresaId, ':per' => $periodo]);
+            return DB::eliminar('sunat_comprobantes', 'empresa_id = :e AND periodo = :per',
+                [':e' => $empresaId, ':per' => $periodo]);
+        });
     }
 
     /** Etiqueta legible del tipo de documento. */

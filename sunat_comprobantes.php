@@ -14,6 +14,19 @@ if (!CredencialSunat::existe()) {
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     Csrf::verificar();
     $periodo = '';
+
+    if (($_POST['op'] ?? '') === 'eliminar_periodo') {
+        $periodo = preg_replace('/\D/', '', (string) ($_POST['periodo'] ?? ''));
+        try {
+            $n = SunatComprobante::eliminarPeriodo($periodo);
+            Sesion::flash('ok', "Período $periodo eliminado: $n comprobante(s) borrado(s). "
+                . 'Puede volver a traerlo del SIRE cuando quiera.');
+        } catch (Throwable $e) {
+            Sesion::flash('error', $e->getMessage());
+        }
+        Vista::redirigir('sunat_comprobantes.php');
+    }
+
     try {
         $periodo = preg_replace('/\D/', '', (string) ($_POST['periodo'] ?? ''));
         if (strlen($periodo) !== 6) {

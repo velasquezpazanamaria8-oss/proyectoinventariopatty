@@ -89,15 +89,33 @@ $fmtPer = fn(string $p): string => substr($p, 4, 2) . '/' . substr($p, 0, 4);
   <div class="tarjeta-cab"><h2>Períodos ya traídos</h2></div>
   <div class="tabla-scroll">
     <table class="tabla">
-      <thead><tr><th>Período</th><th class="num">Ventas</th><th class="num">Compras</th><th>Última sincronización</th><th></th></tr></thead>
+      <thead><tr><th>Período</th><th class="num">Ventas</th><th class="num">Compras</th><th>Última sincronización</th><th class="no-export"></th></tr></thead>
       <tbody>
-      <?php foreach ($sincronizados as $per => $s): ?>
+      <?php foreach ($sincronizados as $per => $s): $generados = (int) ($s['generados'] ?? 0); ?>
         <tr>
           <td><strong><?= e($fmtPer($per)) ?></strong></td>
           <td class="num"><?= (int) $s['ventas'] ?></td>
           <td class="num"><?= (int) $s['compras'] ?></td>
           <td><?= Vista::fecha($s['ultima'], true) ?></td>
-          <td><a class="btn btn-sm btn-gris" href="<?= url('sunat_comprobantes.php?periodo=' . $per) ?>">Ver detalle</a></td>
+          <td class="no-export">
+            <div class="acciones">
+              <a class="btn btn-sm btn-gris" href="<?= url('sunat_comprobantes.php?periodo=' . $per) ?>">Ver detalle</a>
+              <?php if ($generados > 0): ?>
+                <button class="btn btn-sm btn-gris" type="button" disabled
+                        title="<?= e($generados) ?> comprobante(s) de este período ya generaron un movimiento de inventario: no se puede eliminar sin perder ese enlace.">
+                  Eliminar período
+                </button>
+              <?php else: ?>
+                <form method="post" style="display:inline"
+                      data-confirmar="¿Eliminar todo lo traído del período <?= e($fmtPer($per)) ?>? Se borran los <?= (int) $s['ventas'] + (int) $s['compras'] ?> comprobante(s) guardados de este período (no toca el inventario). Se puede volver a traer del SIRE después.">
+                  <?= Csrf::campo() ?>
+                  <input type="hidden" name="op" value="eliminar_periodo">
+                  <input type="hidden" name="periodo" value="<?= e($per) ?>">
+                  <button class="btn btn-sm btn-rojo" type="submit">Eliminar período</button>
+                </form>
+              <?php endif; ?>
+            </div>
+          </td>
         </tr>
       <?php endforeach; ?>
       </tbody>
