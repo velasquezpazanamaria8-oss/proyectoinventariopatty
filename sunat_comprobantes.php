@@ -17,10 +17,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     if (($_POST['op'] ?? '') === 'eliminar_periodo') {
         $periodo = preg_replace('/\D/', '', (string) ($_POST['periodo'] ?? ''));
+        $conMov  = !empty($_POST['con_movimientos']);
         try {
-            $n = SunatComprobante::eliminarPeriodo($periodo);
-            Sesion::flash('ok', "Período $periodo eliminado: $n comprobante(s) borrado(s). "
-                . 'Puede volver a traerlo del SIRE cuando quiera.');
+            $n = SunatComprobante::eliminarPeriodo($periodo, $conMov);
+            Sesion::flash('ok', "Período $periodo eliminado: $n comprobante(s) borrado(s)."
+                . ($conMov ? ' También se deshicieron sus movimientos de inventario y se recalculó el stock.' : '')
+                . ' Puede volver a traerlo del SIRE cuando quiera.');
         } catch (Throwable $e) {
             Sesion::flash('error', $e->getMessage());
         }

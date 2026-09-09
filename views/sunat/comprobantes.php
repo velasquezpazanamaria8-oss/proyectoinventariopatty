@@ -102,9 +102,20 @@ $fmtPer = fn(string $p): string => substr($p, 4, 2) . '/' . substr($p, 0, 4);
               <a class="btn btn-sm btn-gris" href="<?= url('sunat_comprobantes.php?periodo=' . $per) ?>">Ver detalle</a>
               <?php if ($generados > 0): ?>
                 <button class="btn btn-sm btn-gris" type="button" disabled
-                        title="<?= e($generados) ?> comprobante(s) de este período ya generaron un movimiento de inventario: no se puede eliminar sin perder ese enlace.">
+                        title="<?= e($generados) ?> comprobante(s) de este período ya generaron un movimiento de inventario: eliminar así perdería ese enlace.">
                   Eliminar período
                 </button>
+                <form method="post" style="display:inline-flex;align-items:center;gap:6px"
+                      data-confirmar="¿Eliminar TODO el período <?= e($fmtPer($per)) ?>, incluidos los <?= e($generados) ?> movimiento(s) de inventario (entradas/salidas) que ya generó? Esto va a CAMBIAR EL STOCK Y EL COSTO PROMEDIO reales de los productos afectados, recalculando lo que queda de las demás fechas. No hay forma de deshacer esto desde el sistema. Sólo confirme si está seguro.">
+                  <?= Csrf::campo() ?>
+                  <input type="hidden" name="op" value="eliminar_periodo">
+                  <input type="hidden" name="periodo" value="<?= e($per) ?>">
+                  <label style="display:flex;align-items:center;gap:4px;font-size:12px;color:var(--suave)">
+                    <input type="checkbox" name="con_movimientos" value="1" required style="width:auto">
+                    incluir inventario
+                  </label>
+                  <button class="btn btn-sm btn-rojo" type="submit">Eliminar todo (avanzado)</button>
+                </form>
               <?php else: ?>
                 <form method="post" style="display:inline"
                       data-confirmar="¿Eliminar todo lo traído del período <?= e($fmtPer($per)) ?>? Se borran los <?= (int) $s['ventas'] + (int) $s['compras'] ?> comprobante(s) guardados de este período (no toca el inventario). Se puede volver a traer del SIRE después.">
