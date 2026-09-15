@@ -47,9 +47,35 @@ class DB
 
     public static function query(string $sql, array $params = []): PDOStatement
     {
-        $st = self::conn()->prepare($sql);
-        $st->execute($params);
-        return $st;
+        try {
+            $st = self::conn()->prepare($sql);
+            $st->execute($params);
+            return $st;
+        } catch (PDOException $e) {
+            // "MySQL server has gone away" / "Error while sending": el hosting
+            // cierra conexiones inactivas (p.ej. mientras se espera una
+            // llamada HTTP lenta a SUNAT). No es un error de la consulta: se
+            // reconecta una vez y se reintenta, en vez de tirar todo el cron.
+            // Si había una transacción abierta, MySQL ya la perdió: reconectar
+            // y seguir escribiría a medias sin avisar. Mejor dejar que falle
+            // y que el llamador la revierta.
+            if (!self::esDesconexion($e) || self::$pdo === null || self::$pdo->inTransaction()) {
+                throw $e;
+            }
+            self::$pdo = null;
+            $st = self::conn()->prepare($sql);
+            $st->execute($params);
+            return $st;
+        }
+    }
+
+    private static function esDesconexion(PDOException $e): bool
+    {
+        $msg = $e->getMessage();
+        return str_contains($msg, 'server has gone away')
+            || str_contains($msg, 'Error while sending')
+            || str_contains($msg, 'Lost connection')
+            || ($e->errorInfo[1] ?? null) === 2006;
     }
 
     /** Todas las filas */
