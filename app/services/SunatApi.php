@@ -189,6 +189,12 @@ class SunatApi
             CURLOPT_CUSTOMREQUEST  => $metodo,
             CURLOPT_RETURNTRANSFER => true,
             CURLOPT_TIMEOUT        => $timeout,
+            // Sin esto, en algunos builds de libcurl la resolución DNS puede
+            // colgarse más allá de CURLOPT_TIMEOUT: se vio una tarea de cron
+            // "CORRIENDO" sin terminar por horas. NOSIGNAL evita que un SAPI
+            // multi-hilo ignore la señal de corte del timeout.
+            CURLOPT_CONNECTTIMEOUT => min(10, $timeout),
+            CURLOPT_NOSIGNAL       => true,
             CURLOPT_HTTPHEADER     => $headers,
             CURLOPT_SSL_VERIFYPEER => true,
         ]);

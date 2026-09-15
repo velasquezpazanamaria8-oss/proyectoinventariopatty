@@ -41,6 +41,12 @@ if (!$esCli) {
 $segundos = max(30, min(600, (int) ($_GET['segundos'] ?? ($argv[1] ?? 240))));
 $soloEmpresa = (int) ($_GET['empresa'] ?? 0);
 
+// Red de seguridad: si algo se cuelga (p.ej. una llamada de red que ignora su
+// propio timeout), que el hosting mate el proceso en vez de dejarlo
+// "CORRIENDO" para siempre y bloqueando esa empresa. Un poco más que el
+// presupuesto total esperado para las empresas configuradas.
+set_time_limit(min(1800, $segundos * 10 + 120));
+
 echo '[' . date('Y-m-d H:i:s') . '] Iniciando pasada (presupuesto ' . $segundos . 's por empresa)' . PHP_EOL;
 
 // El cron no tiene sesión de navegador: se necesita un usuario para que los
