@@ -55,28 +55,36 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             set_time_limit(280);
             $inicio = microtime(true);
 
-            $d = GeneradorMovimientos::deshacerTodo();
+            $d   = GeneradorMovimientos::deshacerTodo();
             $ini = GeneradorMovimientos::aplicarStockInicial($almacenId);
 
+            // Lo hecho hasta aquí no se pierde aunque falle un lote: se avisa
+            // el motivo, pero el mensaje sigue contando lo que sí se logró.
             $convertidos = 0;
             $fallaron    = 0;
-            do {
-                $lote = GeneradorMovimientos::generar($almacenId, [], 25);
-                $convertidos += count(array_filter($lote, fn($h) => $h['ok']));
-                $fallaron    += count(array_filter($lote, fn($h) => !$h['ok']));
-            } while ($lote && (microtime(true) - $inicio) < 250);
+            $error       = null;
+            try {
+                do {
+                    $lote = GeneradorMovimientos::generar($almacenId, [], 25);
+                    $convertidos += count(array_filter($lote, fn($h) => $h['ok']));
+                    $fallaron    += count(array_filter($lote, fn($h) => !$h['ok']));
+                } while ($lote && (microtime(true) - $inicio) < 250);
+            } catch (Throwable $e) {
+                $error = $e->getMessage();
+            }
 
             $quedan = GeneradorMovimientos::revisar([])['total'];
 
-            Sesion::flash('ok', sprintf(
+            Sesion::flash($error ? 'warning' : 'ok', sprintf(
                 'Rehecho: %d movimiento(s) de SUNAT deshecho(s) (los ajustes y entradas cargadas a '
                 . 'mano no se tocaron), saldo inicial aplicado a %d producto(s), '
-                . '%d comprobante(s) convertidos%s.%s',
+                . '%d comprobante(s) convertidos%s.%s%s',
                 $d['kardex'],
                 $ini['aplicados'], $convertidos,
                 $fallaron ? " ($fallaron con motivo, revise abajo)" : '',
                 $quedan ? " Quedan $quedan por convertir (se acabó el tiempo del servidor: pulse "
-                          . '"Rehacer todo" de nuevo o use "Convertir siguiente lote" para seguir).' : ''
+                          . '"Rehacer todo" de nuevo o use "Convertir siguiente lote" para seguir).' : '',
+                $error ? " Se detuvo antes de terminar: $error" : ''
             ));
         }
     } catch (Throwable $e) {

@@ -118,13 +118,16 @@ class GeneradorMovimientos
         $omitidos = [];
 
         foreach ($pendientes as $p) {
-            // Un saldo inicial fechado ANTES de movimientos que ya existen
-            // rompería el kardex: cada fila guarda el saldo del momento en que
-            // se insertó, así que al leerlo por fecha los saldos no cuadrarían.
-            // Si el producto ya se movió, hay que corregirlo con un ajuste.
+            // Un saldo inicial fechado ANTES de movimientos que ya existen EN
+            // ESA MISMA FECHA O ANTES rompería el kardex: cada fila guarda el
+            // saldo del momento en que se insertó, así que al leerlo por fecha
+            // los saldos no cuadrarían. Un ajuste manual posterior (p.ej. de
+            // hoy, corrigiendo algo de esta semana) no es problema: el saldo
+            // inicial sigue quedando primero en el orden cronológico.
             $yaTieneMovimientos = (int) DB::valor(
-                'SELECT COUNT(*) FROM kardex WHERE producto_id = :p AND almacen_id = :a',
-                [':p' => $p['producto_id'], ':a' => $almacenId]) > 0;
+                'SELECT COUNT(*) FROM kardex
+                  WHERE producto_id = :p AND almacen_id = :a AND fecha <= :f',
+                [':p' => $p['producto_id'], ':a' => $almacenId, ':f' => $fecha . ' 23:59:59']) > 0;
 
             if ($yaTieneMovimientos) {
                 $omitidos[] = $p['codigo'] . ' — ' . mb_substr((string) $p['descripcion'], 0, 40);
