@@ -298,6 +298,47 @@ class GeneradorMovimientos
     }
 
     /**
+     * Pone `stock` (cantidad y costo) al día con el último saldo del kardex,
+     * para todos los productos con movimientos de la empresa activa.
+     *
+     * Hace falta después de mezclar movimientos que se insertaron en momentos
+     * distintos (p.ej. "Rehacer todo" agregando entradas/salidas de SUNAT
+     * fechadas ANTES de un ajuste manual que ya existía): cada fila del
+     * kardex sólo conoce el saldo de cuando SE INSERTÓ, así que una fila
+     * manual más vieja en inserción pero con fecha posterior se queda con un
+     * saldo que ya no es el último. `stock` sí debe reflejar siempre el saldo
+     * más reciente por fecha, sin importar el orden de inserción.
+     */
+    public static function resincronizarStock(): void
+    {
+        $pares = DB::todos(
+            'SELECT DISTINCT producto_id, almacen_id FROM kardex WHERE ' . Empresa::filtro(),
+            Empresa::param());
+
+        foreach ($pares as $par) {
+            $productoId = (int) $par['producto_id'];
+            $almacenId  = (int) $par['almacen_id'];
+
+            $ultima = DB::uno(
+                'SELECT saldo_cantidad, saldo_costo FROM kardex
+                  WHERE producto_id = :p AND almacen_id = :a
+                  ORDER BY fecha DESC, id DESC LIMIT 1',
+                [':p' => $productoId, ':a' => $almacenId]);
+
+            DB::actualizar('stock', [
+                'cantidad'       => $ultima['saldo_cantidad'],
+                'costo_promedio' => $ultima['saldo_costo'],
+            ], 'producto_id = :p AND almacen_id = :a', [':p' => $productoId, ':a' => $almacenId]);
+
+            $costo = Valorizacion::recalcularCostoGlobal($productoId);
+            if (Valorizacion::ambito() === Valorizacion::AMBITO_GLOBAL) {
+                DB::query('UPDATE stock SET costo_promedio = :c WHERE producto_id = :p',
+                    [':c' => $costo, ':p' => $productoId]);
+            }
+        }
+    }
+
+    /**
      * Genera los movimientos de un lote de comprobantes, en orden cronológico.
      * @return array resultado por comprobante
      */

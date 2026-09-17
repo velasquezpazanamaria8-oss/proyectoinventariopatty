@@ -73,6 +73,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $error = $e->getMessage();
             }
 
+            // Las entradas/salidas nuevas quedan fechadas en el pasado, antes
+            // de cualquier ajuste manual que se haya conservado: ese ajuste
+            // guarda el saldo de cuando se insertó, que ya no es el último.
+            // Se recalcula todo por fecha y se pone `stock` al día.
+            Kardex::recalcularSaldos();
+            GeneradorMovimientos::resincronizarStock();
+
             $quedan = GeneradorMovimientos::revisar([])['total'];
 
             Sesion::flash($error ? 'warning' : 'ok', sprintf(
