@@ -170,9 +170,13 @@ class GeneradorMovimientos
      * líneas, equivalencias y archivos siguen intactos. Sólo desaparecen los
      * movimientos.
      *
+     * @param bool $forzar si es true, borra igual aunque haya ajustes/entradas
+     *             manuales (se pierden de verdad, no sólo su efecto). Pedido
+     *             explícito para el botón "Rehacer todo": preferible a que el
+     *             botón nunca sirva por culpa de un ajuste suelto.
      * @return array recuento de lo borrado
      */
-    public static function deshacerTodo(): array
+    public static function deshacerTodo(bool $forzar = false): array
     {
         // Candado: si hay un movimiento que no salió de aquí —un ajuste, un
         // inventario físico, una entrada tecleada a mano— borrar arrasaría con
@@ -190,7 +194,7 @@ class GeneradorMovimientos
                          WHERE c.mov_tabla = \'salidas\' AND c.mov_id = k.origen_id))
                 )', Empresa::param());
 
-        if ($ajenos > 0) {
+        if ($ajenos > 0 && !$forzar) {
             throw new RuntimeException(
                 "Hay $ajenos movimiento(s) en el kardex que no salieron de la importación de "
                 . 'SUNAT (ajustes, inventarios o movimientos registrados a mano). Deshacer '
@@ -198,7 +202,7 @@ class GeneradorMovimientos
                 . 'un ajuste en vez de rehacer la carga.');
         }
 
-        $r = ['kardex' => 0, 'entradas' => 0, 'salidas' => 0, 'comprobantes' => 0, 'inicial' => 0];
+        $r = ['kardex' => 0, 'entradas' => 0, 'salidas' => 0, 'comprobantes' => 0, 'inicial' => 0, 'ajenos' => $ajenos];
 
         DB::transaccion(function () use (&$r) {
             $p = Empresa::param();

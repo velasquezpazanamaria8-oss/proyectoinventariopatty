@@ -52,11 +52,13 @@
       <button class="btn btn-verde" type="submit" style="font-size:15px;padding:10px 18px"
               data-confirmar="Esto va a BORRAR todos los movimientos que esta pantalla generó antes y
               volver a crearlos desde cero (aplicando el saldo inicial guardado y convirtiendo todos
-              los comprobantes pendientes). Puede tardar varios minutos. ¿Continuar?">
+              los comprobantes pendientes). Si hay AJUSTES o entradas/salidas cargadas a mano
+              (no venidas de SUNAT), también se borran y hay que volver a cargarlas después. Puede
+              tardar varios minutos. ¿Continuar?">
         ⟳ Rehacer todo desde cero
       </button>
       <span style="color:var(--suave);font-size:12.5px">
-        Deshace lo ya generado y lo vuelve a crear todo de una vez, sin pasos sueltos.
+        Deshace lo ya generado (incluidos ajustes manuales) y lo vuelve a crear todo de una vez.
       </span>
     </form>
   </div>
