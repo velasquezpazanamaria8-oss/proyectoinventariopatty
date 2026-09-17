@@ -50,15 +50,15 @@
       <input type="hidden" name="op" value="rehacer_todo">
       <input type="hidden" name="almacen_id" value="<?= (int) $almacenId ?>">
       <button class="btn btn-verde" type="submit" style="font-size:15px;padding:10px 18px"
-              data-confirmar="Esto va a BORRAR todos los movimientos que esta pantalla generó antes y
-              volver a crearlos desde cero (aplicando el saldo inicial guardado y convirtiendo todos
-              los comprobantes pendientes). Si hay AJUSTES o entradas/salidas cargadas a mano
-              (no venidas de SUNAT), también se borran y hay que volver a cargarlas después. Puede
-              tardar varios minutos. ¿Continuar?">
+              data-confirmar="Esto va a BORRAR los movimientos que vinieron de SUNAT y volver a
+              crearlos desde cero (aplicando el saldo inicial guardado y convirtiendo todos los
+              comprobantes pendientes). Los ajustes o entradas/salidas que hayan cargado a mano NO
+              se tocan. Puede tardar varios minutos. ¿Continuar?">
         ⟳ Rehacer todo desde cero
       </button>
       <span style="color:var(--suave);font-size:12.5px">
-        Deshace lo ya generado (incluidos ajustes manuales) y lo vuelve a crear todo de una vez.
+        Deshace y vuelve a crear todo lo que vino de SUNAT de una vez, sin pasos sueltos.
+        Los ajustes cargados a mano no se tocan.
       </span>
     </form>
   </div>

@@ -157,82 +157,96 @@ class GeneradorMovimientos
     }
 
     /**
-     * Deshace TODO lo que esta pantalla generó: el saldo inicial y los
-     * comprobantes convertidos. Deja el inventario en cero y los comprobantes
-     * listos para volver a convertirse.
+     * Deshace lo que esta pantalla generó: el saldo inicial y los comprobantes
+     * convertidos. Deja esos productos con el stock que resulte de lo que
+     * quede, y los comprobantes listos para volver a convertirse.
      *
      * Existe porque el kardex es de sólo añadir —cada fila guarda el saldo del
      * momento— y no se puede corregir una carga inicial mal valorizada
      * insertando algo encima: habría que recalcular todos los saldos
      * posteriores. Volver a empezar es lo único que deja el kardex coherente.
      *
+     * SÓLO borra movimientos que vinieron de SUNAT (saldo inicial de esta
+     * pantalla, y entradas/salidas ligadas a un comprobante). Un ajuste, un
+     * inventario físico o una entrada tecleada a mano NO se tocan: quien los
+     * cargó no tiene por qué volver a hacerlo cada vez que se rehace la
+     * importación.
+     *
      * NO se toca nada de lo anterior a esta fase: catálogo, comprobantes,
      * líneas, equivalencias y archivos siguen intactos. Sólo desaparecen los
-     * movimientos.
+     * movimientos que sí generó esta pantalla.
      *
-     * @param bool $forzar si es true, borra igual aunque haya ajustes/entradas
-     *             manuales (se pierden de verdad, no sólo su efecto). Pedido
-     *             explícito para el botón "Rehacer todo": preferible a que el
-     *             botón nunca sirva por culpa de un ajuste suelto.
      * @return array recuento de lo borrado
      */
-    public static function deshacerTodo(bool $forzar = false): array
+    public static function deshacerTodo(): array
     {
-        // Candado: si hay un movimiento que no salió de aquí —un ajuste, un
-        // inventario físico, una entrada tecleada a mano— borrar arrasaría con
-        // trabajo que esta pantalla no puede rehacer.
-        $ajenos = (int) DB::valor(
-            'SELECT COUNT(*) FROM kardex k
-              WHERE ' . Empresa::filtro('k') . '
-                AND NOT (
-                  k.origen_tabla = \'sunat_stock_inicial\'
-                  OR (k.origen_tabla = \'entradas\' AND EXISTS (
-                        SELECT 1 FROM sunat_comprobantes c
-                         WHERE c.mov_tabla = \'entradas\' AND c.mov_id = k.origen_id))
-                  OR (k.origen_tabla = \'salidas\' AND EXISTS (
-                        SELECT 1 FROM sunat_comprobantes c
-                         WHERE c.mov_tabla = \'salidas\' AND c.mov_id = k.origen_id))
-                )', Empresa::param());
-
-        if ($ajenos > 0 && !$forzar) {
+        if (Valorizacion::usaCapas()) {
             throw new RuntimeException(
-                "Hay $ajenos movimiento(s) en el kardex que no salieron de la importación de "
-                . 'SUNAT (ajustes, inventarios o movimientos registrados a mano). Deshacer '
-                . 'borraría ese trabajo, así que no se hace nada. Corrija la valorización con '
-                . 'un ajuste en vez de rehacer la carga.');
+                'Con ' . Valorizacion::metodo() . ' el saldo depende de las capas de costo: '
+                . 'no se puede rehacer manteniendo movimientos manuales sin reconstruirlas una '
+                . 'por una. Borre esos movimientos manuales a mano primero si quiere rehacer todo.');
         }
 
-        $r = ['kardex' => 0, 'entradas' => 0, 'salidas' => 0, 'comprobantes' => 0, 'inicial' => 0, 'ajenos' => $ajenos];
+        // Sólo esto cuenta como "vino de SUNAT": el saldo inicial de esta
+        // pantalla, y una entrada/salida que un comprobante recuerda como
+        // suya. Todo lo demás (ajustes, inventarios, entradas manuales) se
+        // conserva tal cual.
+        $condicionSunat = "(
+                  k.origen_tabla = 'sunat_stock_inicial'
+                  OR (k.origen_tabla = 'entradas' AND EXISTS (
+                        SELECT 1 FROM sunat_comprobantes c
+                         WHERE c.mov_tabla = 'entradas' AND c.mov_id = k.origen_id))
+                  OR (k.origen_tabla = 'salidas' AND EXISTS (
+                        SELECT 1 FROM sunat_comprobantes c
+                         WHERE c.mov_tabla = 'salidas' AND c.mov_id = k.origen_id))
+                )";
 
-        DB::transaccion(function () use (&$r) {
+        $r = ['kardex' => 0, 'entradas' => 0, 'salidas' => 0, 'comprobantes' => 0, 'inicial' => 0];
+
+        $afectados = DB::transaccion(function () use (&$r, $condicionSunat) {
             $p = Empresa::param();
+            $afectados = [];
 
-            $r['kardex'] = (int) DB::valor('SELECT COUNT(*) FROM kardex WHERE ' . Empresa::filtro(), $p);
+            $filasKardex = DB::todos(
+                "SELECT id, producto_id, almacen_id FROM kardex k
+                  WHERE " . Empresa::filtro('k') . " AND $condicionSunat", $p);
+            $r['kardex'] = count($filasKardex);
 
-            // Los consumos de capas cuelgan del kardex; las capas, de la empresa.
-            DB::query('DELETE kc FROM kardex_capa kc
-                         JOIN kardex k ON k.id = kc.kardex_id
-                        WHERE ' . Empresa::filtro('k'), $p);
-            DB::query('DELETE FROM kardex WHERE ' . Empresa::filtro(), $p);
-            DB::query('DELETE FROM capas_costo WHERE ' . Empresa::filtro(), $p);
+            foreach ($filasKardex as $k) {
+                $afectados[$k['producto_id'] . '-' . $k['almacen_id']] = [$k['producto_id'], $k['almacen_id']];
+            }
 
-            // Las entradas y salidas creadas al convertir. El detalle se va en
-            // cascada, pero se borra explícito para no depender de ello.
-            $r['entradas'] = (int) DB::valor('SELECT COUNT(*) FROM entradas WHERE ' . Empresa::filtro(), $p);
-            $r['salidas']  = (int) DB::valor('SELECT COUNT(*) FROM salidas  WHERE ' . Empresa::filtro(), $p);
-            DB::query('DELETE d FROM entrada_detalle d JOIN entradas e ON e.id = d.entrada_id
-                        WHERE ' . Empresa::filtro('e'), $p);
-            DB::query('DELETE d FROM salida_detalle d JOIN salidas s ON s.id = d.salida_id
-                        WHERE ' . Empresa::filtro('s'), $p);
-            DB::query('DELETE FROM entradas WHERE ' . Empresa::filtro(), $p);
-            DB::query('DELETE FROM salidas  WHERE ' . Empresa::filtro(), $p);
+            $idsKardex = array_column($filasKardex, 'id');
+            if ($idsKardex) {
+                $in = implode(',', array_map('intval', $idsKardex));
+                DB::query("DELETE FROM kardex_capa WHERE kardex_id IN ($in)");
+                DB::query("DELETE FROM capas_costo WHERE kardex_id IN ($in)");
+                DB::query("DELETE FROM kardex WHERE id IN ($in)");
+            }
 
-            // El inventario vuelve a cero: sin movimientos no hay existencias
-            // ni costo que sostener.
-            DB::query('UPDATE stock s JOIN productos pr ON pr.id = s.producto_id
-                          SET s.cantidad = 0, s.costo_promedio = 0
-                        WHERE ' . Empresa::filtro('pr'), $p);
-            DB::query('UPDATE productos SET costo_promedio = 0 WHERE ' . Empresa::filtro(), $p);
+            // Sólo las entradas/salidas que un comprobante recuerda como
+            // propias: las que alguien tecleó a mano desde Entradas/Salidas
+            // no quedan enlazadas a ningún comprobante y se conservan.
+            $idsEntradas = array_column(DB::todos(
+                "SELECT mov_id FROM sunat_comprobantes WHERE " . Empresa::filtro()
+                . " AND mov_tabla = 'entradas' AND mov_id IS NOT NULL", $p), 'mov_id');
+            $idsSalidas = array_column(DB::todos(
+                "SELECT mov_id FROM sunat_comprobantes WHERE " . Empresa::filtro()
+                . " AND mov_tabla = 'salidas' AND mov_id IS NOT NULL", $p), 'mov_id');
+
+            $r['entradas'] = count($idsEntradas);
+            $r['salidas']  = count($idsSalidas);
+
+            if ($idsEntradas) {
+                $in = implode(',', array_map('intval', $idsEntradas));
+                DB::query("DELETE FROM entrada_detalle WHERE entrada_id IN ($in)");
+                DB::query("DELETE FROM entradas WHERE id IN ($in)");
+            }
+            if ($idsSalidas) {
+                $in = implode(',', array_map('intval', $idsSalidas));
+                DB::query("DELETE FROM salida_detalle WHERE salida_id IN ($in)");
+                DB::query("DELETE FROM salidas WHERE id IN ($in)");
+            }
 
             // Los comprobantes quedan como antes de convertirse.
             $r['comprobantes'] = DB::query(
@@ -246,7 +260,35 @@ class GeneradorMovimientos
             $r['inicial'] = DB::query(
                 'UPDATE sunat_stock_inicial SET aplicado_en = NULL
                   WHERE ' . Empresa::filtro() . ' AND aplicado_en IS NOT NULL', $p)->rowCount();
+
+            return $afectados;
         });
+
+        // El borrado va en su propia transacción; Kardex::recalcularSaldos()
+        // abre la suya y este motor no admite transacciones anidadas. Sin
+        // esto, la fila manual que sobrevive se queda con un saldo calculado
+        // contra movimientos que ya no existen.
+        if ($afectados) {
+            Kardex::recalcularSaldos();
+            foreach ($afectados as [$productoId, $almacenId]) {
+                $ultima = DB::uno(
+                    'SELECT saldo_cantidad, saldo_costo FROM kardex
+                      WHERE producto_id = :p AND almacen_id = :a
+                      ORDER BY fecha DESC, id DESC LIMIT 1',
+                    [':p' => $productoId, ':a' => $almacenId]);
+
+                DB::actualizar('stock', [
+                    'cantidad'       => $ultima ? $ultima['saldo_cantidad'] : 0,
+                    'costo_promedio' => $ultima ? $ultima['saldo_costo'] : 0,
+                ], 'producto_id = :p AND almacen_id = :a', [':p' => $productoId, ':a' => $almacenId]);
+
+                $costo = Valorizacion::recalcularCostoGlobal($productoId);
+                if (Valorizacion::ambito() === Valorizacion::AMBITO_GLOBAL) {
+                    DB::query('UPDATE stock SET costo_promedio = :c WHERE producto_id = :p',
+                        [':c' => $costo, ':p' => $productoId]);
+                }
+            }
+        }
 
         Auditoria::registrar('MOVIMIENTOS_DESHECHOS', 'kardex', null, $r);
         return $r;

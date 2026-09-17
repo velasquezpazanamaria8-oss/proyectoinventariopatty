@@ -55,7 +55,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             set_time_limit(280);
             $inicio = microtime(true);
 
-            $d = GeneradorMovimientos::deshacerTodo(true);
+            $d = GeneradorMovimientos::deshacerTodo();
             $ini = GeneradorMovimientos::aplicarStockInicial($almacenId);
 
             $convertidos = 0;
@@ -69,11 +69,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $quedan = GeneradorMovimientos::revisar([])['total'];
 
             Sesion::flash('ok', sprintf(
-                'Rehecho: %d movimiento(s) anterior(es) deshecho(s)%s, saldo inicial aplicado a '
-                . '%d producto(s), %d comprobante(s) convertidos%s.%s',
+                'Rehecho: %d movimiento(s) de SUNAT deshecho(s) (los ajustes y entradas cargadas a '
+                . 'mano no se tocaron), saldo inicial aplicado a %d producto(s), '
+                . '%d comprobante(s) convertidos%s.%s',
                 $d['kardex'],
-                $d['ajenos'] ? ' (incluidos ' . $d['ajenos'] . ' ajuste(s)/entrada(s) manual(es) que'
-                    . ' NO venían de SUNAT: se perdieron, vuelva a cargarlos si hacían falta)' : '',
                 $ini['aplicados'], $convertidos,
                 $fallaron ? " ($fallaron con motivo, revise abajo)" : '',
                 $quedan ? " Quedan $quedan por convertir (se acabó el tiempo del servidor: pulse "
