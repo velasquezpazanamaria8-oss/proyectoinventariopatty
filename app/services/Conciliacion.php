@@ -520,6 +520,12 @@ class Conciliacion
                     COALESCE(si.cantidad, 0)       AS cantidad,
                     COALESCE(si.costo_unitario, 0) AS costo_unitario,
                     si.aplicado_en,
+                    -- Distingue "nunca se decidió" de "se guardó 0 a propósito":
+                    -- sin esto, guardar 0 para decir "no había stock" es
+                    -- indistinguible de no haber tocado el campo, y la
+                    -- pantalla vuelve a proponer el sugerido en el siguiente
+                    -- envío, deshaciendo silenciosamente la decisión.
+                    (si.id IS NOT NULL) AS decidido,
                     -- Costo con el que proponer la carga inicial: lo que de
                     -- verdad costó ese producto según las compras ya
                     -- importadas. Sin esta ayuda el campo nace en cero y el
@@ -537,7 +543,7 @@ class Conciliacion
                LEFT JOIN sunat_stock_inicial si
                       ON si.producto_id = pr.id AND si.almacen_id = :alm AND si.empresa_id = pr.empresa_id
               WHERE ' . Empresa::filtro('m') . ' AND m.producto_id IS NOT NULL
-              GROUP BY pr.id, pr.codigo, pr.descripcion, un.codigo, si.cantidad, si.costo_unitario, si.aplicado_en
+              GROUP BY pr.id, pr.codigo, pr.descripcion, un.codigo, si.id, si.cantidad, si.costo_unitario, si.aplicado_en
               ORDER BY pr.descripcion',
             Empresa::param() + [':alm' => $almacenId]);
 

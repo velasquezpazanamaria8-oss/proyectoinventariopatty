@@ -232,10 +232,16 @@
               $minimo   = (float) $s['cantidad_minima'];
               $cantAct  = (float) $s['cantidad'];
               $corto    = $minimo > 0 && $cantAct < $minimo; ?>
+              <?php /* Sólo se propone el sugerido si el usuario nunca decidió
+                       nada para este producto. Si ya guardó (aunque sea 0
+                       a propósito, para decir "no había stock"), se respeta:
+                       de lo contrario un simple "Guardar" sin tocar nada
+                       deshace un 0 explícito y vuelve a meter el sugerido. */
+              $decidido = !empty($s['decidido']); ?>
               <input type="number" step="0.0001" min="0" style="text-align:right"
                      name="cantidad[<?= (int) $s['id'] ?>]"
-                     value="<?= $cantAct > 0 ? e(rtrim(rtrim($s['cantidad'], '0'), '.'))
-                                             : ($minimo > 0 ? e(rtrim(rtrim(number_format($minimo, 4, '.', ''), '0'), '.')) : '0') ?>">
+                     value="<?= $decidido ? e(rtrim(rtrim(number_format($cantAct, 4, '.', ''), '0'), '.'))
+                                          : ($minimo > 0 ? e(rtrim(rtrim(number_format($minimo, 4, '.', ''), '0'), '.')) : '0') ?>">
               <?php if ($corto): ?>
                 <br><small style="color:var(--error)">faltan al menos
                   <?= e(rtrim(rtrim(number_format($minimo, 4, '.', ''), '0'), '.')) ?></small>
