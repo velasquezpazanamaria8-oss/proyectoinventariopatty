@@ -27,6 +27,22 @@
   <?php endif; ?>
 </div>
 
+<?php if ($sunatPendiente): ?>
+<div class="alerta alerta-warning" style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap">
+  <div>
+    <strong>SUNAT tiene pendientes:</strong>
+    <?php if ($sunatPendiente['sin_decidir'] > 0): ?>
+      <?= (int) $sunatPendiente['sin_decidir'] ?> línea(s) sin conciliar
+    <?php endif; ?>
+    <?php if ($sunatPendiente['sin_decidir'] > 0 && $sunatPendiente['fallidos'] > 0): ?> · <?php endif; ?>
+    <?php if ($sunatPendiente['fallidos'] > 0): ?>
+      <?= (int) $sunatPendiente['fallidos'] ?> venta(s)/compra(s) sin generar (revisar motivo)
+    <?php endif; ?>
+  </div>
+  <a class="btn btn-sm" href="<?= url('sunat_estado.php') ?>">Revisar</a>
+</div>
+<?php endif; ?>
+
 <div class="tarjeta">
   <div class="tarjeta-cab">
     <h2>Alertas de stock mínimo</h2>

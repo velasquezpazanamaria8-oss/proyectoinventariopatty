@@ -443,6 +443,15 @@ class GeneradorMovimientos
               ORDER BY fecha_emision LIMIT ' . (int) $limite, Empresa::param());
     }
 
+    /** Cuántos comprobantes no se pudieron convertir, sin traer el detalle. */
+    public static function contarFallidos(): int
+    {
+        return (int) DB::valor(
+            'SELECT COUNT(*) FROM sunat_comprobantes
+              WHERE ' . Empresa::filtro() . ' AND mov_id IS NULL AND mov_msg IS NOT NULL',
+            Empresa::param());
+    }
+
     /** Comprobantes ya convertidos, con su movimiento. */
     public static function generados(int $limite = 100): array
     {
