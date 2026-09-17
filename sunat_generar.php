@@ -46,6 +46,37 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             // se pinta aquí, sino después de la redirección.
             Sesion::set('gen_resultado', $resultado);
         }
+
+        if (($_POST['op'] ?? '') === 'rehacer_todo') {
+            // Un solo botón que encadena deshacer + aplicar saldo inicial +
+            // convertir TODOS los lotes que quepan en el tiempo disponible.
+            // Pedido explícito: "no complicarse con muchos botones", el
+            // contador quiere rehacer todo de una sola vez sin pasos sueltos.
+            set_time_limit(280);
+            $inicio = microtime(true);
+
+            $d = GeneradorMovimientos::deshacerTodo();
+            $ini = GeneradorMovimientos::aplicarStockInicial($almacenId);
+
+            $convertidos = 0;
+            $fallaron    = 0;
+            do {
+                $lote = GeneradorMovimientos::generar($almacenId, [], 25);
+                $convertidos += count(array_filter($lote, fn($h) => $h['ok']));
+                $fallaron    += count(array_filter($lote, fn($h) => !$h['ok']));
+            } while ($lote && (microtime(true) - $inicio) < 250);
+
+            $quedan = GeneradorMovimientos::revisar([])['total'];
+
+            Sesion::flash('ok', sprintf(
+                'Rehecho: %d movimiento(s) anterior(es) deshecho(s), saldo inicial aplicado a '
+                . '%d producto(s), %d comprobante(s) convertidos%s.%s',
+                $d['kardex'], $ini['aplicados'], $convertidos,
+                $fallaron ? " ($fallaron con motivo, revise abajo)" : '',
+                $quedan ? " Quedan $quedan por convertir (se acabó el tiempo del servidor: pulse "
+                          . '"Rehacer todo" de nuevo o use "Convertir siguiente lote" para seguir).' : ''
+            ));
+        }
     } catch (Throwable $e) {
         Sesion::flash('error', $e->getMessage());
     }

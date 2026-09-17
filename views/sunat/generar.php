@@ -44,9 +44,28 @@
         <?php endforeach; ?>
       </select>
     </div>
+
+    <form method="post" style="margin-top:14px">
+      <?= Csrf::campo() ?>
+      <input type="hidden" name="op" value="rehacer_todo">
+      <input type="hidden" name="almacen_id" value="<?= (int) $almacenId ?>">
+      <button class="btn btn-verde" type="submit" style="font-size:15px;padding:10px 18px"
+              data-confirmar="Esto va a BORRAR todos los movimientos que esta pantalla generó antes y
+              volver a crearlos desde cero (aplicando el saldo inicial guardado y convirtiendo todos
+              los comprobantes pendientes). Puede tardar varios minutos. ¿Continuar?">
+        ⟳ Rehacer todo desde cero
+      </button>
+      <span style="color:var(--suave);font-size:12.5px">
+        Deshace lo ya generado y lo vuelve a crear todo de una vez, sin pasos sueltos.
+      </span>
+    </form>
   </div>
 
   <div class="tarjeta-cuerpo" style="border-top:1px solid var(--linea)">
+    <p style="color:var(--suave);font-size:12.5px;margin:0 0 10px">
+      O, si prefieren hacerlo paso a paso (por ejemplo para revisar el saldo inicial antes de
+      aplicarlo):
+    </p>
     <h3 style="font-size:14px;margin-top:0">Paso 1 — Saldo inicial</h3>
 
     <?php /* Ya aplicado y sin valor: el kardex lo tiene registrado a costo cero
