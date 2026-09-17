@@ -193,8 +193,9 @@
 
     <div class="tarjeta-cuerpo">
       <div class="alerta alerta-warning">
-        Las ventas de junio incluyen productos comprados <strong>antes</strong> de junio. Como el
-        sistema no permite salidas sin stock, hay que decir con cuánto empezaba cada producto.
+        Hay ventas que incluyen productos comprados <strong>antes</strong> del primer comprobante
+        importado de ese producto. Como el sistema no permite salidas sin stock, hay que decir con
+        cuánto empezaba cada producto.
         <br><br>
         Al generar los movimientos se creará una <strong>carga inicial</strong> con estas cantidades,
         fechada justo antes del primer comprobante, y recién después se reproduce la historia.
