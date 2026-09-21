@@ -44,9 +44,12 @@ class SunatTarea
         try {
             $cred = CredencialSunat::descifradas();
 
-            // --- 1. SIRE de los períodos vivos ---
-            // El mes en curso y el anterior: los comprobantes siguen llegando
-            // durante días después de cerrar el mes.
+            // --- 1. SIRE del período vivo ---
+            // Sólo el mes en curso. Antes también traía el anterior (por si
+            // llegaban comprobantes tarde), pero eso volvía a tocar un mes ya
+            // cerrado cada noche sin que nadie lo pidiera — a pedido explícito
+            // se saca. Un mes cerrado que necesite algo tardío se trae a mano
+            // desde "Comprobantes SUNAT".
             foreach (self::periodosVivos() as $per) {
                 if (microtime(true) - $inicio > $segundos * 0.5) {
                     break;                       // deja tiempo para descargar
@@ -97,10 +100,10 @@ class SunatTarea
         }
     }
 
-    /** Período actual y anterior, en formato YYYYMM. */
+    /** Período actual, en formato YYYYMM. */
     private static function periodosVivos(): array
     {
-        return [date('Ym'), date('Ym', strtotime('first day of last month'))];
+        return [date('Ym')];
     }
 
     private static function hayOtraCorriendo(): bool
