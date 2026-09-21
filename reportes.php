@@ -46,6 +46,16 @@ switch ($reporte) {
         $titulo = 'Inventario por almacén';
         $datos  = Reporte::porAlmacen();
         break;
+
+    case 'compras_producto':
+        $titulo = 'Compras por producto';
+        $datos  = Reporte::comprasPorProducto(['desde' => $desde, 'hasta' => $hasta, 'almacen_id' => $almacen]);
+        break;
+
+    case 'ventas_producto':
+        $titulo = 'Ventas por producto';
+        $datos  = Reporte::ventasPorProducto(['desde' => $desde, 'hasta' => $hasta, 'almacen_id' => $almacen]);
+        break;
 }
 
 Vista::render('reportes/index', [

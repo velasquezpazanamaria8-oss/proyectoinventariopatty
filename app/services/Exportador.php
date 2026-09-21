@@ -131,6 +131,36 @@ class Exportador
                     ['valor',     'Valorizado','numero', 18, 100, 'der'],
                 ],
             ],
+            'compras_producto' => [
+                'titulo' => 'Compras por producto',
+                'orientacion' => 'horizontal',
+                'permiso' => 'reportes.ver',
+                'suma' => ['cantidad', 'total'],
+                'cols' => [
+                    ['codigo',         'Código',      'texto',  14,  75, 'izq'],
+                    ['descripcion',    'Producto',    'texto',  42, 200, 'izq'],
+                    ['unidad',         'Und',         'texto',   8,  40, 'centro'],
+                    ['documentos',     'Documentos',  'numero', 12,  65, 'der'],
+                    ['cantidad',       'Cantidad',    'numero', 14,  75, 'der'],
+                    ['costo_promedio', 'C. promedio', 'numero', 14,  75, 'der'],
+                    ['total',          'Total',       'numero', 15,  85, 'der'],
+                ],
+            ],
+            'ventas_producto' => [
+                'titulo' => 'Ventas por producto',
+                'orientacion' => 'horizontal',
+                'permiso' => 'reportes.ver',
+                'suma' => ['cantidad', 'total'],
+                'cols' => [
+                    ['codigo',         'Código',      'texto',  14,  75, 'izq'],
+                    ['descripcion',    'Producto',    'texto',  42, 200, 'izq'],
+                    ['unidad',         'Und',         'texto',   8,  40, 'centro'],
+                    ['documentos',     'Documentos',  'numero', 12,  65, 'der'],
+                    ['cantidad',       'Cantidad',    'numero', 14,  75, 'der'],
+                    ['costo_promedio', 'C. promedio', 'numero', 14,  75, 'der'],
+                    ['total',          'Total',       'numero', 15,  85, 'der'],
+                ],
+            ],
             'kardex_producto' => [
                 'titulo' => 'Kardex por producto',
                 'orientacion' => 'horizontal',
@@ -215,6 +245,12 @@ class Exportador
 
             case 'por_almacen':
                 return Reporte::porAlmacen();
+
+            case 'compras_producto':
+                return Reporte::comprasPorProducto($f);
+
+            case 'ventas_producto':
+                return Reporte::ventasPorProducto($f);
 
             case 'kardex_producto':
                 $movs = Kardex::porProducto(

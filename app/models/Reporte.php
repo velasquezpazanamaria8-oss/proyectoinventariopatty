@@ -121,6 +121,60 @@ class Reporte
               ORDER BY total DESC', $p);
     }
 
+    /**
+     * Compras (entradas) agrupadas por producto, en un rango de fechas.
+     * Para "un mes": desde = primer día del mes, hasta = último. Para "un
+     * día": desde = hasta = esa fecha. El mismo filtro sirve para ambos.
+     */
+    public static function comprasPorProducto(array $f = []): array
+    {
+        $where = [Empresa::filtro('e'), "e.estado != 'ANULADO'"];
+        $p = Empresa::param();
+        if (!empty($f['desde']))      { $where[] = 'e.fecha >= :d';      $p[':d'] = $f['desde']; }
+        if (!empty($f['hasta']))      { $where[] = 'e.fecha <= :h';      $p[':h'] = $f['hasta']; }
+        if (!empty($f['almacen_id'])) { $where[] = 'e.almacen_id = :a';  $p[':a'] = $f['almacen_id']; }
+
+        return DB::todos(
+            'SELECT pr.id, pr.codigo, pr.descripcion, un.codigo AS unidad,
+                    COUNT(DISTINCT d.entrada_id)                              AS documentos,
+                    COALESCE(SUM(d.cantidad), 0)                              AS cantidad,
+                    COALESCE(SUM(d.subtotal), 0)                              AS total,
+                    CASE WHEN SUM(d.cantidad) > 0
+                         THEN SUM(d.subtotal) / SUM(d.cantidad) ELSE 0 END    AS costo_promedio
+               FROM entrada_detalle d
+               JOIN entradas  e  ON e.id  = d.entrada_id
+               JOIN productos pr ON pr.id = d.producto_id
+               JOIN unidades  un ON un.id = pr.unidad_id
+              WHERE ' . implode(' AND ', $where) . '
+              GROUP BY pr.id, pr.codigo, pr.descripcion, un.codigo
+              ORDER BY total DESC', $p);
+    }
+
+    /** Ventas (salidas) agrupadas por producto, en un rango de fechas. */
+    public static function ventasPorProducto(array $f = []): array
+    {
+        $where = [Empresa::filtro('s'), "s.estado != 'ANULADO'"];
+        $p = Empresa::param();
+        if (!empty($f['desde']))      { $where[] = 's.fecha >= :d';      $p[':d'] = $f['desde']; }
+        if (!empty($f['hasta']))      { $where[] = 's.fecha <= :h';      $p[':h'] = $f['hasta']; }
+        if (!empty($f['almacen_id'])) { $where[] = 's.almacen_id = :a';  $p[':a'] = $f['almacen_id']; }
+
+        return DB::todos(
+            'SELECT pr.id, pr.codigo, pr.descripcion, un.codigo AS unidad,
+                    COUNT(DISTINCT d.salida_id)                                AS documentos,
+                    COALESCE(SUM(d.cantidad), 0)                               AS cantidad,
+                    COALESCE(SUM(d.subtotal), 0)                               AS total,
+                    CASE WHEN SUM(d.cantidad) > 0
+                         THEN SUM(d.subtotal) / SUM(d.cantidad) ELSE 0 END     AS costo_promedio
+               FROM salida_detalle d
+               JOIN salidas   s  ON s.id  = d.salida_id
+               JOIN productos pr ON pr.id = d.producto_id
+               JOIN unidades  un ON un.id = pr.unidad_id
+              WHERE ' . implode(' AND ', $where) . '
+              GROUP BY pr.id, pr.codigo, pr.descripcion, un.codigo
+              ORDER BY total DESC', $p);
+    }
+
     /** Indicadores del panel principal. */
     public static function resumen(): array
     {

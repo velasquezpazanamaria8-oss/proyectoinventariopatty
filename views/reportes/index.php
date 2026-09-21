@@ -7,6 +7,8 @@ $catalogo = [
     'por_usuario'   => ['Movimientos por usuario',    'Cantidad de movimientos por responsable.'],
     'por_categoria' => ['Inventario por categoría',   'Existencias y valor agrupados por categoría.'],
     'por_almacen'   => ['Inventario por almacén',     'Existencias y valor agrupados por almacén.'],
+    'compras_producto' => ['Compras por producto', 'Qué se compró y cuánto, por producto, en un mes o un día.'],
+    'ventas_producto'  => ['Ventas por producto',  'Qué se vendió y cuánto, por producto, en un mes o un día.'],
 ];
 ?>
 
@@ -62,9 +64,25 @@ $catalogo = [
   <div class="tarjeta-cuerpo">
     <form class="filtros" method="get">
       <input type="hidden" name="r" value="<?= e($reporte) ?>">
-      <?php if (in_array($reporte, ['entradas', 'salidas', 'por_usuario'], true)): ?>
+      <?php if (in_array($reporte, ['entradas', 'salidas', 'por_usuario', 'compras_producto', 'ventas_producto'], true)): ?>
+        <?php if (in_array($reporte, ['compras_producto', 'ventas_producto'], true)): ?>
+          <div class="campo">
+            <label>Mes</label>
+            <input type="month" id="mesRapido" value="<?= e(substr($desde, 0, 7)) ?>"
+                   onchange="var m=this.value; if(!m) return;
+                             document.querySelector('[name=desde]').value = m + '-01';
+                             document.querySelector('[name=hasta]').value =
+                               new Date(m.slice(0,4), m.slice(5,7), 0).toISOString().slice(0,10);">
+          </div>
+        <?php endif; ?>
         <div class="campo"><label>Desde</label><input type="date" name="desde" value="<?= e($desde) ?>"></div>
         <div class="campo"><label>Hasta</label><input type="date" name="hasta" value="<?= e($hasta) ?>"></div>
+        <?php if (in_array($reporte, ['compras_producto', 'ventas_producto'], true)): ?>
+          <p style="color:var(--suave);font-size:12px;width:100%;margin:2px 0 0">
+            Para un solo día, pongan la misma fecha en "Desde" y "Hasta". Para un mes completo, usen el
+            selector "Mes" (llena Desde/Hasta solo).
+          </p>
+        <?php endif; ?>
       <?php endif; ?>
       <?php if ($reporte !== 'por_almacen' && $reporte !== 'por_usuario'): ?>
         <div class="campo">
@@ -98,12 +116,13 @@ $catalogo = [
         'total' => 'Total', 'items' => 'Ítems', 'usuario' => 'Usuario', 'nombres' => 'Nombres',
         'rol' => 'Rol', 'entradas' => 'Entradas', 'salidas' => 'Salidas',
         'ajustes' => 'Ajustes', 'productos' => 'Productos', 'cantidad' => 'Cantidad',
+        'documentos' => 'Documentos',
       ];
       $ocultas = ['id', 'producto_id', 'almacen_id', 'proveedor_id', 'usuario_id', 'estado',
                   'creado_en', 'observacion', 'tipo_documento', 'nro_documento'];
       $cols = array_values(array_diff(array_keys($datos[0]), $ocultas));
       $numericas = ['stock_actual','stock_minimo','costo_promedio','fisico','reservado','disponible',
-                    'valor','total','items','cantidad','entradas','salidas','ajustes','productos'];
+                    'valor','total','items','cantidad','entradas','salidas','ajustes','productos','documentos'];
       ?>
       <thead><tr>
         <?php foreach ($cols as $c): ?>
