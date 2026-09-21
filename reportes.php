@@ -6,6 +6,7 @@ $reporte = $_GET['r'] ?? '';
 $desde   = $_GET['desde'] ?? date('Y-m-01');
 $hasta   = $_GET['hasta'] ?? date('Y-m-d');
 $almacen = $_GET['almacen_id'] ?? '';
+$codigo  = trim($_GET['codigo'] ?? '');
 
 $datos = [];
 $titulo = 'Reportes';
@@ -49,12 +50,14 @@ switch ($reporte) {
 
     case 'compras_producto':
         $titulo = 'Compras por producto';
-        $datos  = Reporte::comprasPorProducto(['desde' => $desde, 'hasta' => $hasta, 'almacen_id' => $almacen]);
+        $datos  = Reporte::comprasPorProducto(
+            ['desde' => $desde, 'hasta' => $hasta, 'almacen_id' => $almacen, 'codigo' => $codigo]);
         break;
 
     case 'ventas_producto':
         $titulo = 'Ventas por producto';
-        $datos  = Reporte::ventasPorProducto(['desde' => $desde, 'hasta' => $hasta, 'almacen_id' => $almacen]);
+        $datos  = Reporte::ventasPorProducto(
+            ['desde' => $desde, 'hasta' => $hasta, 'almacen_id' => $almacen, 'codigo' => $codigo]);
         break;
 }
 
@@ -64,5 +67,6 @@ Vista::render('reportes/index', [
     'desde'     => $desde,
     'hasta'     => $hasta,
     'almacen'   => $almacen,
+    'codigo'    => $codigo,
     'almacenes' => Catalogo::opciones('almacenes'),
 ], $titulo);

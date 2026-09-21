@@ -134,6 +134,26 @@ class Reporte
         if (!empty($f['hasta']))      { $where[] = 'e.fecha <= :h';      $p[':h'] = $f['hasta']; }
         if (!empty($f['almacen_id'])) { $where[] = 'e.almacen_id = :a';  $p[':a'] = $f['almacen_id']; }
 
+        // Con un código puesto, no interesa el resumen: interesa cada día que
+        // se compró ese producto puntual, uno por fila (lo que pidió el
+        // contador: "qué días compró tal producto y cuánto", no el total).
+        if (!empty($f['codigo'])) {
+            $where[] = 'pr.codigo LIKE :cod';
+            $p[':cod'] = $f['codigo'] . '%';
+
+            return DB::todos(
+                'SELECT e.fecha, e.serie_numero AS documento, pr.codigo, pr.descripcion,
+                        un.codigo AS unidad, prov.razon_social AS proveedor,
+                        d.cantidad, d.costo_unitario, d.subtotal AS total
+                   FROM entrada_detalle d
+                   JOIN entradas    e    ON e.id  = d.entrada_id
+                   JOIN productos   pr   ON pr.id = d.producto_id
+                   JOIN unidades    un   ON un.id = pr.unidad_id
+                   LEFT JOIN proveedores prov ON prov.id = e.proveedor_id
+                  WHERE ' . implode(' AND ', $where) . '
+                  ORDER BY e.fecha, e.id', $p);
+        }
+
         return DB::todos(
             'SELECT pr.id, pr.codigo, pr.descripcion, un.codigo AS unidad,
                     COUNT(DISTINCT d.entrada_id)                              AS documentos,
@@ -158,6 +178,22 @@ class Reporte
         if (!empty($f['desde']))      { $where[] = 's.fecha >= :d';      $p[':d'] = $f['desde']; }
         if (!empty($f['hasta']))      { $where[] = 's.fecha <= :h';      $p[':h'] = $f['hasta']; }
         if (!empty($f['almacen_id'])) { $where[] = 's.almacen_id = :a';  $p[':a'] = $f['almacen_id']; }
+
+        if (!empty($f['codigo'])) {
+            $where[] = 'pr.codigo LIKE :cod';
+            $p[':cod'] = $f['codigo'] . '%';
+
+            return DB::todos(
+                'SELECT s.fecha, s.serie_numero AS documento, pr.codigo, pr.descripcion,
+                        un.codigo AS unidad, s.destino AS cliente,
+                        d.cantidad, d.costo_unitario, d.subtotal AS total
+                   FROM salida_detalle d
+                   JOIN salidas   s  ON s.id  = d.salida_id
+                   JOIN productos pr ON pr.id = d.producto_id
+                   JOIN unidades  un ON un.id = pr.unidad_id
+                  WHERE ' . implode(' AND ', $where) . '
+                  ORDER BY s.fecha, s.id', $p);
+        }
 
         return DB::todos(
             'SELECT pr.id, pr.codigo, pr.descripcion, un.codigo AS unidad,

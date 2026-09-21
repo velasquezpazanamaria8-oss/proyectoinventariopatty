@@ -12,8 +12,30 @@ class Exportador
      * Definición de cada reporte.
      * cols: [clave, etiqueta, tipo(texto|numero|fecha), anchoExcel, anchoPdf, alineación]
      */
-    public static function definicion(string $reporte): ?array
+    public static function definicion(string $reporte, array $f = []): ?array
     {
+        // Con un código de producto puesto, "compras/ventas por producto" ya
+        // no resumen por producto: listan cada día que se movió ESE producto,
+        // así que llevan sus propias columnas en vez de las del resumen.
+        if (in_array($reporte, ['compras_producto', 'ventas_producto'], true) && !empty($f['codigo'])) {
+            $esVenta = $reporte === 'ventas_producto';
+            return [
+                'titulo' => ($esVenta ? 'Ventas' : 'Compras') . ' de "' . $f['codigo'] . '" por fecha',
+                'orientacion' => 'horizontal',
+                'permiso' => 'reportes.ver',
+                'suma' => ['cantidad', 'total'],
+                'cols' => [
+                    ['fecha',          'Fecha',                          'fecha',  12,  65, 'centro'],
+                    ['documento',      'Documento',                      'texto',  16,  80, 'izq'],
+                    [$esVenta ? 'cliente' : 'proveedor',
+                     $esVenta ? 'Cliente' : 'Proveedor',                 'texto',  32, 160, 'izq'],
+                    ['cantidad',       'Cantidad',                       'numero', 12,  65, 'der'],
+                    ['costo_unitario', 'C. unit.',                       'numero', 13,  68, 'der'],
+                    ['total',          'Total',                          'numero', 14,  75, 'der'],
+                ],
+            ];
+        }
+
         $defs = [
             'stock_actual' => [
                 'titulo' => 'Stock actual',
@@ -319,7 +341,7 @@ class Exportador
 
     public static function aPdf(string $reporte, array $f): never
     {
-        $def   = self::exigirDefinicion($reporte);
+        $def   = self::exigirDefinicion($reporte, $f);
         $datos = self::datos($reporte, $f);
 
         $pdf = new Pdf($def['titulo'], $def['orientacion']);
@@ -344,7 +366,7 @@ class Exportador
 
     public static function aExcel(string $reporte, array $f): never
     {
-        $def   = self::exigirDefinicion($reporte);
+        $def   = self::exigirDefinicion($reporte, $f);
         $datos = self::datos($reporte, $f);
 
         $x = new Excel($def['titulo']);
@@ -366,9 +388,9 @@ class Exportador
 
     // --- Apoyo ---------------------------------------------------------
 
-    private static function exigirDefinicion(string $reporte): array
+    private static function exigirDefinicion(string $reporte, array $f = []): array
     {
-        $def = self::definicion($reporte);
+        $def = self::definicion($reporte, $f);
         if (!$def) {
             throw new InvalidArgumentException('Reporte desconocido: ' . $reporte);
         }

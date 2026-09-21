@@ -22,6 +22,7 @@ $filtros = [
     'q'             => trim($_GET['q'] ?? ''),
     'producto_id'   => $_GET['producto_id'] ?? '',
     'inventario_id' => $_GET['inventario_id'] ?? '',
+    'codigo'        => trim($_GET['codigo'] ?? ''),
 ];
 
 try {
