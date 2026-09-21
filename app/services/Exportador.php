@@ -251,7 +251,8 @@ class Exportador
                 return Reporte::valorizado($f);
 
             case 'stock_minimo':
-                return Producto::stockMinimo(!empty($f['almacen_id']) ? (int) $f['almacen_id'] : null);
+                return Producto::stockMinimo(
+                    !empty($f['almacen_id']) ? (int) $f['almacen_id'] : null, $f['codigo'] ?? null);
 
             case 'entradas':
                 return Entrada::listar($f, 5000);

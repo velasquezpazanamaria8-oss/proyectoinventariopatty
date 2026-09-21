@@ -235,11 +235,13 @@ class Producto
     }
 
     /** Productos en o bajo el stock mínimo. RF-10. */
-    public static function stockMinimo(?int $almacenId = null): array
+    public static function stockMinimo(?int $almacenId = null, ?string $codigo = null): array
     {
         $p = Empresa::param();
         $filtroAlm = '';
         if ($almacenId) { $filtroAlm = ' AND s.almacen_id = :alm'; $p[':alm'] = $almacenId; }
+        $filtroCod = '';
+        if ($codigo)    { $filtroCod = ' AND pr.codigo LIKE :cod'; $p[':cod'] = $codigo . '%'; }
 
         return DB::todos(
             'SELECT pr.id, pr.codigo, pr.descripcion, pr.stock_minimo, un.codigo AS unidad,
@@ -247,7 +249,7 @@ class Producto
                FROM productos pr
                JOIN unidades un ON un.id = pr.unidad_id
                LEFT JOIN stock s ON s.producto_id = pr.id' . $filtroAlm . '
-              WHERE ' . Empresa::filtro('pr') . ' AND pr.estado = 1
+              WHERE ' . Empresa::filtro('pr') . ' AND pr.estado = 1' . $filtroCod . '
               GROUP BY pr.id, pr.codigo, pr.descripcion, pr.stock_minimo, un.codigo
              -- Se repite la expresión en lugar de usar el alias: MariaDB no
              -- admite referenciar una función de agregación por su alias.

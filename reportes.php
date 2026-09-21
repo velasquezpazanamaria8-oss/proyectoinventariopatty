@@ -14,23 +14,25 @@ $titulo = 'Reportes';
 switch ($reporte) {
     case 'stock_minimo':
         $titulo = 'Productos con stock mínimo';
-        $datos  = Producto::stockMinimo($almacen ? (int) $almacen : null);
+        $datos  = Producto::stockMinimo($almacen ? (int) $almacen : null, $codigo ?: null);
         break;
 
     case 'valorizado':
         Auth::requierePermiso('reportes.valorizado');
         $titulo = 'Inventario valorizado';
-        $datos  = Reporte::valorizado(['almacen_id' => $almacen]);
+        $datos  = Reporte::valorizado(['almacen_id' => $almacen, 'codigo' => $codigo]);
         break;
 
     case 'entradas':
         $titulo = 'Entradas por fecha';
-        $datos  = Entrada::listar(['desde' => $desde, 'hasta' => $hasta, 'almacen_id' => $almacen], 1000);
+        $datos  = Entrada::listar(
+            ['desde' => $desde, 'hasta' => $hasta, 'almacen_id' => $almacen, 'codigo' => $codigo], 1000);
         break;
 
     case 'salidas':
         $titulo = 'Salidas por fecha';
-        $datos  = Salida::listar(['desde' => $desde, 'hasta' => $hasta, 'almacen_id' => $almacen], 1000);
+        $datos  = Salida::listar(
+            ['desde' => $desde, 'hasta' => $hasta, 'almacen_id' => $almacen, 'codigo' => $codigo], 1000);
         break;
 
     case 'por_usuario':

@@ -16,6 +16,11 @@ class Entrada
             $where[] = '(e.serie_numero LIKE :q1 OR e.nro_documento LIKE :q2)';
             $p[':q1'] = $p[':q2'] = '%' . $f['q'] . '%';
         }
+        if (!empty($f['codigo'])) {
+            $where[] = 'EXISTS (SELECT 1 FROM entrada_detalle d JOIN productos pr ON pr.id = d.producto_id
+                                  WHERE d.entrada_id = e.id AND pr.codigo LIKE :cod)';
+            $p[':cod'] = $f['codigo'] . '%';
+        }
 
         return DB::todos(
             'SELECT e.*, a.nombre AS almacen, pv.razon_social AS proveedor, u.usuario,

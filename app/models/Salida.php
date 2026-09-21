@@ -19,6 +19,11 @@ class Salida
             $where[] = '(s.serie_numero LIKE :q1 OR s.destino LIKE :q2)';
             $p[':q1'] = $p[':q2'] = '%' . $f['q'] . '%';
         }
+        if (!empty($f['codigo'])) {
+            $where[] = 'EXISTS (SELECT 1 FROM salida_detalle d JOIN productos pr ON pr.id = d.producto_id
+                                  WHERE d.salida_id = s.id AND pr.codigo LIKE :cod)';
+            $p[':cod'] = $f['codigo'] . '%';
+        }
 
         return DB::todos(
             'SELECT s.*, a.nombre AS almacen, u.usuario,

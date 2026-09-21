@@ -16,6 +16,13 @@ class Reporte
             $where[] = '(pr.codigo LIKE :q1 OR pr.descripcion LIKE :q2)';
             $p[':q1'] = $p[':q2'] = '%' . $f['q'] . '%';
         }
+        // 'codigo' es el mismo filtro con otro nombre: lo usan los reportes
+        // (Reportes > Inventario valorizado), mientras 'q' lo usa la pantalla
+        // de Stock actual. Se aceptan los dos para no duplicar el método.
+        if (!empty($f['codigo'])) {
+            $where[] = 'pr.codigo LIKE :cod';
+            $p[':cod'] = $f['codigo'] . '%';
+        }
 
         return DB::todos(
             'SELECT pr.id, pr.codigo, pr.descripcion, pr.stock_minimo, pr.costo_promedio,

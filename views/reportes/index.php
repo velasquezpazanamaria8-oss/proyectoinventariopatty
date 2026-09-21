@@ -79,10 +79,6 @@ $catalogo = [
         <div class="campo"><label>Desde</label><input type="date" name="desde" value="<?= e($desde) ?>"></div>
         <div class="campo"><label>Hasta</label><input type="date" name="hasta" value="<?= e($hasta) ?>"></div>
         <?php if (in_array($reporte, ['compras_producto', 'ventas_producto'], true)): ?>
-          <div class="campo">
-            <label>Código de producto (opcional)</label>
-            <input type="text" name="codigo" value="<?= e($codigo ?? '') ?>" placeholder="Ej: S127">
-          </div>
           <p style="color:var(--suave);font-size:12px;width:100%;margin:2px 0 0">
             Para un solo día, pongan la misma fecha en "Desde" y "Hasta". Para un mes completo, usen el
             selector "Mes" (llena Desde/Hasta solo).
@@ -90,6 +86,13 @@ $catalogo = [
             detalle día por día de ESE producto: qué días se movió y cuánto.
           </p>
         <?php endif; ?>
+      <?php endif; ?>
+      <?php if (in_array($reporte, ['stock_minimo', 'valorizado', 'entradas', 'salidas',
+                                     'compras_producto', 'ventas_producto'], true)): ?>
+        <div class="campo">
+          <label>Código de producto (opcional)</label>
+          <input type="text" name="codigo" value="<?= e($codigo ?? '') ?>" placeholder="Ej: S127">
+        </div>
       <?php endif; ?>
       <?php if ($reporte !== 'por_almacen' && $reporte !== 'por_usuario'): ?>
         <div class="campo">
@@ -126,7 +129,7 @@ $catalogo = [
         'documentos' => 'Documentos', 'documento' => 'Documento', 'cliente' => 'Cliente',
         'costo_unitario' => 'C. unitario',
       ];
-      $ocultas = ['id', 'producto_id', 'almacen_id', 'proveedor_id', 'usuario_id', 'estado',
+      $ocultas = ['id', 'empresa_id', 'producto_id', 'almacen_id', 'proveedor_id', 'usuario_id', 'estado',
                   'creado_en', 'observacion', 'tipo_documento', 'nro_documento'];
       $cols = array_values(array_diff(array_keys($datos[0]), $ocultas));
       $numericas = ['stock_actual','stock_minimo','costo_promedio','fisico','reservado','disponible',
